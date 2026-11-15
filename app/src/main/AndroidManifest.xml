@@ -10,6 +10,8 @@
     <application
         android:allowBackup="false"
         android:label="JARVIS"
+        android:icon="@drawable/ic_jarvis"
+        android:roundIcon="@drawable/ic_jarvis"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true">

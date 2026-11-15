@@ -29,6 +29,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val accent = Color.rgb(83, 215, 194)
     private val panel = Color.rgb(18, 29, 40)
     private val installedApps = mutableListOf<AppEntry>()
+    private var vpnCandidates: List<AppEntry> = emptyList()
+    private var vpnIndex = -1
 
     data class AppEntry(val label: String, val packageName: String, val icon: android.graphics.drawable.Drawable)
 
@@ -217,6 +219,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         try {
             when {
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
+                cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd.contains("wi-fi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
                 cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
@@ -248,16 +251,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun openVpn() {
         val vpnWords = listOf("vpn", "впн", "wireguard", "openvpn", "tunnel", "прокси")
-        val candidates = installedApps.filter { app ->
+        vpnCandidates = installedApps.filter { app ->
             (app.label + " " + app.packageName).lowercase().let { s -> vpnWords.any { s.contains(it) } }
-        }
-        if (candidates.isEmpty()) {
-            respond("Не нашёл установленный VPN-клиент. Открываю настройки VPN Android.")
-            openSettings("android.settings.VPN_SETTINGS", "Открой настройки VPN и выбери установленный клиент.")
-            return
-        }
-        val preferred = candidates.sortedBy { app ->
-            val s = (app.label + app.packageName).lowercase()
+        }.sortedBy { app ->
+            val s = (app.label + " " + app.packageName).lowercase()
             when {
                 s.contains("wireguard") -> 0
                 s.contains("proton") -> 1
@@ -266,14 +263,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 else -> 4
             }
         }
-        val first = preferred.first()
+        vpnIndex = -1
+        nextVpn()
+    }
+
+    private fun nextVpn() {
+        if (vpnCandidates.isEmpty()) {
+            respond("Не нашёл распознаваемый VPN-клиент среди приложений. Открываю системные настройки VPN.")
+            openSettings("android.settings.VPN_SETTINGS", "Выбери VPN-клиент в настройках Android.")
+            return
+        }
+        val nextIndex = vpnIndex + 1
+        if (nextIndex >= vpnCandidates.size) {
+            respond("Других найденных VPN-клиентов нет. Я не могу проверить соединение автоматически без системного разрешения VPN.")
+            return
+        }
+        vpnIndex = nextIndex
+        val candidate = vpnCandidates[vpnIndex]
         try {
-            launchApp(first.packageName)
-            respond("Запустил ${first.label}. Android требует подтвердить подключение внутри VPN-клиента. Я не могу достоверно проверить подключение без разрешения самого VPN. Если клиент не соединится, вернись сюда и скажи «следующий VPN».")
+            launchApp(candidate.packageName)
+            respond("Запустил вариант ${vpnIndex + 1} из ${vpnCandidates.size}: ${candidate.label}. Подтверди подключение в самом приложении. Если оно не подключится, скажи «следующий VPN». Я не вижу надёжный статус соединения без отдельного системного VPN-сервиса.")
         } catch (_: Exception) {
-            val next = preferred.drop(1).firstOrNull()
-            if (next != null) { launchApp(next.packageName); respond("Первый клиент не открылся. Запускаю ${next.label}.") }
-            else { openSettings("android.settings.VPN_SETTINGS", "Не удалось открыть VPN-клиенты. Открываю системные настройки VPN.") }
+            respond("${candidate.label} не удалось открыть. Попробуй команду «следующий VPN» для следующего найденного приложения.")
         }
     }
 

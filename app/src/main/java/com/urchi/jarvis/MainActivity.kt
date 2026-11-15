@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE)
             textSize = 14f
-            singleLine = true
+            isSingleLine = true
             setPadding(dp(12), 0, dp(12), 0)
             setBackgroundColor(panel)
         }
@@ -673,7 +673,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun composeSms(value: String) {
-        val parts = value.trim().split(Regex("\\s+", 2))
+        val parts = Regex("\\s+").split(value.trim(), limit = 2)
         if (parts.size < 2 || parts[0].isBlank() || parts[1].isBlank()) {
             respond("Формат: напиши смс +79990000000 текст сообщения.")
             return

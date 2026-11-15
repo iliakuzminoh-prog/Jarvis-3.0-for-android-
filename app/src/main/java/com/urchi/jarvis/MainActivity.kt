@@ -332,7 +332,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val aliases = prefs.all.filterKeys { it.startsWith("alias_") }.toSortedMap()
         if (aliases.isEmpty()) { respond("Сохранённых пользовательских команд пока нет."); return }
         val lines = aliases.map { (key, value) -> "• ${key.removePrefix("alias_")} = $value" }
-        output.text = "МОИ КОМАНДЫ\\n" + lines.joinToString("\\n")
+        output.text = "МОИ КОМАНДЫ\n" + lines.joinToString("\n")
         say("Сохранено команд: ${aliases.size}. Список показан на экране.")
     }
 

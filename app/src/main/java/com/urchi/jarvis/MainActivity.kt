@@ -1,6 +1,12 @@
 package com.urchi.jarvis
 
 import android.app.Activity
+import android.app.AlarmManager
+import android.hardware.camera2.CameraManager
+import android.media.AudioManager
+import android.os.BatteryManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,6 +37,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val installedApps = mutableListOf<AppEntry>()
     private var vpnCandidates: List<AppEntry> = emptyList()
     private var vpnIndex = -1
+    private val prefs by lazy { getSharedPreferences("jarvis_local", Context.MODE_PRIVATE) }
 
     data class AppEntry(val label: String, val packageName: String, val icon: android.graphics.drawable.Drawable)
 
@@ -217,7 +224,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
         try {
+            val learned = prefs.getString("alias_" + cmd, null)
+            if (learned != null && learned != cmd) {
+                respond("Выполняю сохранённую команду.")
+                runCommand(learned)
+                return
+            }
+            if (cmd.contains(" потом ")) {
+                val parts = cmd.split(" потом ").map { it.trim() }.filter { it.isNotBlank() }
+                respond("Выполняю последовательность из ${parts.size} действий.")
+                parts.forEach { runCommand(it) }
+                return
+            }
             when {
+                cmd.startsWith("научи команду ") -> teachCommand(raw)
+                cmd.startsWith("запомни ") || cmd.startsWith("сохрани заметку ") -> saveNote(raw)
+                cmd.contains("мои заметки") || cmd.contains("покажи заметки") || cmd == "заметки" -> showNotes()
+                cmd.contains("таймер") -> setTimer(raw)
+                cmd.contains("будильник") -> openAlarm()
+                cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
+                cmd.contains("фонарик") -> toggleTorch(cmd.contains("выключ"))
+                cmd.contains("заряд") || cmd.contains("батаре") -> showBattery()
+                cmd.contains("громче") || cmd.contains("увеличь громкость") -> changeVolume(true)
+                cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
+                cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
+                cmd.contains("яркость") -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Открываю настройки экрана.")
+                cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
@@ -247,6 +279,116 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         } catch (e: Exception) { respond("Не удалось выполнить действие: ${e.localizedMessage ?: "ошибка Android"}.") }
+    }
+
+
+    private fun teachCommand(raw: String) {
+        val body = raw.substringAfter("научи команду").trim()
+        val parts = body.split("=", limit = 2)
+        if (parts.size != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            respond("Формат: научи команду открыть видео = открой YouTube")
+            return
+        }
+        val phrase = parts[0].trim().lowercase(Locale.getDefault())
+        val action = parts[1].trim()
+        if (phrase.length < 2 || action.length < 2 || phrase == action.lowercase()) {
+            respond("Команда слишком короткая или ссылается сама на себя.")
+            return
+        }
+        prefs.edit().putString("alias_" + phrase, action).apply()
+        respond("Запомнил команду «$phrase». Доступны только встроенные действия Jarvis.")
+    }
+
+    private fun saveNote(raw: String) {
+        val note = raw.substringAfter("запомни", raw.substringAfter("сохрани заметку", "")).trim()
+        if (note.isBlank()) { respond("Скажи: запомни купить тетрадь."); return }
+        prefs.edit().putString("note_" + System.currentTimeMillis(), note).apply()
+        respond("Сохранил заметку на этом телефоне.")
+    }
+
+    private fun showNotes() {
+        val notes = prefs.all.filterKeys { it.startsWith("note_") }.toSortedMap()
+        if (notes.isEmpty()) { respond("Сохранённых заметок пока нет."); return }
+        val text = notes.values.joinToString("\\n") { it.toString() }
+        output.text = "ТВОИ ЗАМЕТКИ\\n$text"
+        say("У тебя ${notes.size} заметок. Они показаны на экране.")
+    }
+
+    private fun setTimer(raw: String) {
+        val match = Regex("(\\d+)\\s*(секунд|сек|минут|мин|час|часа|часов)").find(raw.lowercase())
+        if (match == null) { respond("Укажи длительность, например: поставь таймер на 5 минут."); return }
+        val amount = match.groupValues[1].toIntOrNull() ?: 0
+        val unit = match.groupValues[2]
+        val seconds = when {
+            unit.startsWith("сек") -> amount
+            unit.startsWith("мин") -> amount * 60
+            else -> amount * 3600
+        }
+        if (seconds !in 1..86400) { respond("Таймер должен быть от одной секунды до 24 часов."); return }
+        try {
+            startActivity(Intent(AlarmManager.ACTION_SET_TIMER).putExtra(AlarmManager.EXTRA_LENGTH, seconds).putExtra(AlarmManager.EXTRA_SKIP_UI, false))
+            respond("Передал таймер системным часам. Проверь и запусти его.")
+        } catch (_: Exception) { respond("На телефоне не найдено приложение часов с поддержкой таймеров.") }
+    }
+
+    private fun openAlarm() {
+        try { startActivity(Intent(AlarmManager.ACTION_SET_ALARM)); respond("Открываю создание будильника в системных часах.") }
+        catch (_: Exception) { respond("Не удалось открыть приложение часов.") }
+    }
+
+    private fun openCalendar() {
+        try { startActivity(Intent(Intent.ACTION_INSERT).setData(android.provider.CalendarContract.Events.CONTENT_URI)); respond("Открываю создание события в календаре. Проверь дату и сохрани его.") }
+        catch (_: Exception) { respond("Не найдено приложение календаря.") }
+    }
+
+    private fun openFiles() {
+        try {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }
+            startActivityForResult(intent, 42)
+            respond("Открыл системный выбор файлов.")
+        } catch (_: Exception) { respond("Системный выбор файлов недоступен.") }
+    }
+
+    private fun showBattery() {
+        val manager = getSystemService(BATTERY_SERVICE) as BatteryManager
+        val level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val status = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val plugged = status?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+        respond("Заряд батареи: $level процентов. " + if (plugged != 0) "Телефон подключён к питанию." else "Телефон работает от аккумулятора.")
+    }
+
+    private fun changeVolume(up: Boolean) {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+        respond(if (up) "Увеличиваю громкость мультимедиа." else "Уменьшаю громкость мультимедиа.")
+    }
+
+    private fun toggleTorch(turnOff: Boolean) {
+        try {
+            val camera = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
+            if (id == null) { respond("На устройстве не обнаружена вспышка."); return }
+            camera.setTorchMode(id, !turnOff)
+            respond(if (turnOff) "Выключил фонарик." else "Включил фонарик.")
+        } catch (_: SecurityException) {
+            respond("Android не предоставил доступ к вспышке. Проверь разрешение камеры для Jarvis.")
+        } catch (e: Exception) {
+            respond("Не удалось переключить фонарик: ${e.localizedMessage ?: "ошибка устройства"}.")
+        }
+    }
+
+    private fun showNetwork() {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork
+        val caps = network?.let { manager.getNetworkCapabilities(it) }
+        if (caps == null) { respond("Сейчас нет активного сетевого подключения."); return }
+        val vpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        val wifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        val mobile = caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+        respond("Сеть подключена. Тип: " + when { vpn -> "VPN-туннель"; wifi -> "Wi-Fi"; mobile -> "мобильная сеть"; else -> "другая сеть" } + ".")
     }
 
     private fun openVpn() {
@@ -321,10 +463,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (requestCode == 41 && resultCode == Activity.RESULT_OK) {
             val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) { input.setText(spoken); runCommand(spoken) }
+        } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                val name = uri.lastPathSegment ?: "выбранный файл"
+                respond("Файл выбран: $name. Открываю системным приложением.")
+                try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, contentResolver.getType(uri) ?: "*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+                catch (_: Exception) { respond("Файл выбран, но приложения для его открытия нет.") }
+            }
         }
     }
 
-    private fun helpText() = "Я умею: открывать установленные приложения по названию; показывать их значки; открывать Wi-Fi, Bluetooth и системные настройки; запускать найденный VPN-клиент; сообщать время и дату; искать в интернете; принимать голосовые команды. Это локальный набор правил, а не обученная большая языковая модель."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять заметки; запоминать пользовательские псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

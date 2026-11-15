@@ -922,7 +922,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (requestCode == 41 && resultCode == Activity.RESULT_OK) {
             val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) { input.setText(spoken); runCommand(spoken) }
-        } else if (requestCode == 52 && resultCode == Activity.RESULT_OK) {
+        } else if (requestCode == 52) {
             if (Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)) enableOverlay()
             else respond("Разрешение на показ поверх окон не выдано. Плавающая кнопка не включена.")
         } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {

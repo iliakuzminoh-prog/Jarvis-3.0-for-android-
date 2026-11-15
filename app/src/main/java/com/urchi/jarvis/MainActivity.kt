@@ -249,6 +249,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("громче") || cmd.contains("увеличь громкость") -> changeVolume(true)
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
+                cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
+                cmd.contains("звук") || cmd.contains("настройки звука") -> openSettings(android.provider.Settings.ACTION_SOUND_SETTINGS, "Открываю настройки звука.")
+                cmd.contains("уведомлен") -> openSettings(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS, "Открываю настройки уведомлений.")
                 cmd.contains("яркость") -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Открываю настройки экрана.")
                 cmd.contains("местоположен") || cmd.contains("геолокац") -> openSettings(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS, "Открываю настройки местоположения.")
                 cmd.contains("спец возможности") || cmd.contains("специальные возможности") -> openSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS, "Открываю специальные возможности Android.")
@@ -484,6 +487,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: throw ActivityNotFoundException()
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(launch)
+    }
+
+    private fun openAppSettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.fromParts("package", packageName, null))
+            startActivity(intent)
+            respond("Открыл настройки Jarvis. Здесь можно посмотреть и изменить выданные разрешения.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть настройки разрешений Jarvis.")
+        }
     }
 
     private fun openSettings(action: String, message: String) {

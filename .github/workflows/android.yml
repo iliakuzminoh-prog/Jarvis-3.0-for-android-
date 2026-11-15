@@ -28,6 +28,9 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Build debug APK
         run: set -o pipefail; gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee build.log
+      - name: Verify APK signature
+        if: success()
+        run: "$ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk"
       - name: Record APK checksum
         if: success() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256

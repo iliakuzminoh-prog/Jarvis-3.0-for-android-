@@ -21,6 +21,7 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.content.Context
 import android.widget.*
@@ -270,8 +271,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.startsWith("позвони ") || cmd.startsWith("набери номер ") -> openDialer(raw.substringAfter(" "))
                 cmd.startsWith("напиши смс ") || cmd.startsWith("отправь смс ") -> composeSms(raw.substringAfter("смс").trim())
                 cmd.startsWith("маршрут до ") || cmd.startsWith("построй маршрут до ") || cmd.startsWith("найди адрес ") -> openMap(raw.substringAfter("до ").takeIf { cmd.contains("до ") } ?: raw.substringAfter("адрес "))
+                cmd.contains("максимальная громкость") || cmd.contains("громкость на максимум") -> setMediaVolume(100)
+                cmd.contains("минимальная громкость") || cmd.contains("громкость на минимум") || cmd.contains("выключи звук мультимедиа") -> setMediaVolume(0)
+                cmd.contains("громкость") && Regex("\\d{1,3}").containsMatchIn(cmd) -> setMediaVolume(Regex("\\d{1,3}").find(cmd)?.value?.toIntOrNull() ?: 50)
                 cmd.contains("громче") || cmd.contains("увеличь громкость") -> changeVolume(true)
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
+                cmd.contains("следующий трек") || cmd.contains("следующая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT)
+                cmd.contains("предыдущий трек") || cmd.contains("предыдущая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+                cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+                cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
                 cmd.contains("звук") || cmd.contains("настройки звука") -> openSettings(android.provider.Settings.ACTION_SOUND_SETTINGS, "Открываю настройки звука.")
@@ -477,6 +485,22 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
         respond(if (up) "Увеличиваю громкость мультимедиа." else "Уменьшаю громкость мультимедиа.")
+    }
+
+    private fun setMediaVolume(percent: Int) {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val safePercent = percent.coerceIn(0, 100)
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val target = (max * safePercent / 100f).toInt()
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI)
+        respond("Громкость мультимедиа установлена примерно на $safePercent процентов.")
+    }
+
+    private fun sendMediaKey(keyCode: Int) {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        respond("Передал команду управления воспроизведением активному медиаплееру.")
     }
 
     private fun toggleTorch(turnOff: Boolean) {
@@ -710,7 +734,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

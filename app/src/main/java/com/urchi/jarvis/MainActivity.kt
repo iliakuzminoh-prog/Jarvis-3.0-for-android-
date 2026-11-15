@@ -16,6 +16,7 @@ import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -54,6 +55,49 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         loadApps()
         renderApps("")
         say("Система запущена. Чем могу помочь?")
+        handleOverlayIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOverlayIntent(intent)
+    }
+
+    private fun handleOverlayIntent(intent: Intent?) {
+        if (intent == null) return
+        val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)
+        val voice = intent.getBooleanExtra(EXTRA_OVERLAY_VOICE, false)
+        if (!command.isNullOrBlank()) root.post { runCommand(command) }
+        else if (voice) root.post { startVoice() }
+        intent.removeExtra(EXTRA_OVERLAY_COMMAND)
+        intent.removeExtra(EXTRA_OVERLAY_VOICE)
+    }
+
+    private fun enableOverlay() {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            respond("Для плавающего окна нужно разрешить JARVIS показываться поверх других приложений.")
+            val permissionIntent = Intent(
+                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            try { startActivityForResult(permissionIntent, 52) }
+            catch (_: Exception) { respond("Открой настройки приложений и вручную разреши показ поверх других окон.") }
+            return
+        }
+        try {
+            val serviceIntent = Intent(this, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
+            else startService(serviceIntent)
+            respond("Плавающая кнопка JARVIS включена. Дважды нажми на неё, чтобы открыть окно запроса.")
+        } catch (_: Exception) {
+            respond("Не удалось запустить плавающее окно. Проверь разрешения и уведомления JARVIS.")
+        }
+    }
+
+    private fun disableOverlay() {
+        stopService(Intent(this, OverlayService::class.java))
+        respond("Плавающая кнопка JARVIS выключена.")
     }
 
     override fun onInit(status: Int) {
@@ -98,6 +142,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             gravity = Gravity.CENTER
         }
         root.addView(subtitle, matchWrap())
+        addSpace(14)
+        root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { enableOverlay() }, matchWrap())
         addSpace(20)
 
         output = TextView(this).apply {
@@ -105,7 +151,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             textSize = 15f
             setTextColor(Color.WHITE)
             setPadding(dp(16), dp(16), dp(16), dp(16))
-            setBackgroundColor(panel)
+            background = roundedBackground(panel, 16)
+            elevation = dp(3).toFloat()
         }
         root.addView(output, matchWrap())
         addSpace(12)
@@ -118,7 +165,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             textSize = 14f
             isSingleLine = true
             setPadding(dp(12), 0, dp(12), 0)
-            setBackgroundColor(panel)
+            background = roundedBackground(panel, 12)
         }
         row.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
         val mic = button("МИК", false) { startVoice() }
@@ -157,7 +204,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             setTextColor(Color.WHITE)
             setSingleLine(true)
             setPadding(dp(12), 0, dp(12), 0)
-            setBackgroundColor(panel)
+            background = roundedBackground(panel, 12)
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderApps(s?.toString() ?: "") }
@@ -196,6 +243,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             isAllCaps = false
             setTextColor(if (primary) Color.rgb(5, 24, 27) else Color.WHITE)
             setBackgroundTintList(android.content.res.ColorStateList.valueOf(if (primary) accent else panel))
+            minHeight = dp(44)
+            elevation = dp(2).toFloat()
             setOnClickListener { action() }
         }
     }
@@ -226,7 +275,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(10), dp(7), dp(10), dp(7))
-                setBackgroundColor(panel)
+                background = roundedBackground(panel, 12)
                 val icon = ImageView(this@MainActivity).apply { setImageDrawable(app.icon) }
                 addView(icon, LinearLayout.LayoutParams(dp(36), dp(36)))
                 val name = TextView(this@MainActivity).apply {
@@ -268,6 +317,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 return
             }
             when {
+                cmd.contains("выключи плавающее окно") || cmd.contains("убери кнопку jarvis") -> disableOverlay()
+                cmd.contains("плавающее окно") || cmd.contains("включи плавающий jarvis") -> enableOverlay()
                 cmd.startsWith("научи команду ") -> teachCommand(raw)
                 cmd.startsWith("удали команду ") -> deleteAlias(raw)
                 cmd.contains("мои команды") || cmd.contains("покажи команды") -> showAliases()
@@ -871,6 +922,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (requestCode == 41 && resultCode == Activity.RESULT_OK) {
             val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) { input.setText(spoken); runCommand(spoken) }
+        } else if (requestCode == 52 && resultCode == Activity.RESULT_OK) {
+            if (Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)) enableOverlay()
+            else respond("Разрешение на показ поверх окон не выдано. Плавающая кнопка не включена.")
         } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
@@ -893,6 +947,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (ttsReady) tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
     }
 
+    private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = dp(radiusDp).toFloat()
+    }
+
     private fun addSpace(size: Int) { root.addView(View(this), LinearLayout.LayoutParams(1, dp(size))) }
     private fun matchWrap() = LinearLayout.LayoutParams(-1, -2)
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -900,5 +959,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
         super.onDestroy()
+    }
+
+    companion object {
+        const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
+        const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
     }
 }

@@ -353,7 +353,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("спасибо") || cmd.contains("благодар") -> respond("Пожалуйста. Чем ещё помочь?")
                 isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
                 cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
-                cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") || cmd.contains("включи музыку") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+                cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+                cmd == "музыка" || cmd == "включи музыку" || cmd == "открой музыку" || cmd == "запусти музыку" -> openMusicSmart()
+                cmd.contains("vk музыка") || cmd.contains("вк музыка") -> openVkMusicExplicit()
+                cmd.contains("музыку без интернета") || cmd.contains("локальную музыку") || cmd.contains("музыку на телефоне") -> openLocalMusicPlayer()
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
                 cmd.contains("звук") || cmd.contains("настройки звука") -> openSettings(android.provider.Settings.ACTION_SOUND_SETTINGS, "Открываю настройки звука.")
@@ -729,6 +732,64 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+
+    private fun hasInternetConnection(): Boolean {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork ?: return false
+        val caps = manager.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun findVkMusicApp(): InstalledApp? {
+        return installedApps.firstOrNull {
+            val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            value.contains("vk") && (value.contains("music") || value.contains("музык"))
+        }
+    }
+
+    private fun openVkMusicExplicit() {
+        val app = findVkMusicApp()
+        if (app != null) {
+            launchApp(app.packageName)
+            respond("Открываю VK Музыку.")
+        } else {
+            respond("Приложение VK Музыка не найдено.")
+        }
+    }
+
+    private fun openMusicSmart() {
+        if (hasInternetConnection()) {
+            val app = findVkMusicApp()
+            if (app != null) {
+                launchApp(app.packageName)
+                respond("Открываю VK Музыку.")
+            } else {
+                respond("Интернет есть, но приложение VK Музыка не найдено. Установи его или скажи «локальная музыка».")
+            }
+        } else {
+            openLocalMusicPlayer()
+        }
+    }
+
+    private fun openLocalMusicPlayer() {
+        val app = installedApps.firstOrNull {
+            val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            (value.contains("музык") || value.contains("music") || value.contains("player") || value.contains("плеер")) &&
+                !value.contains("video") && !value.contains("видео")
+        }
+        if (app != null) {
+            launchApp(app.packageName)
+            respond("Интернета нет. Открываю локальный музыкальный плеер: ${app.label}.")
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).apply { type = "audio/*" })
+            respond("Открываю установленное приложение для музыки.")
+        } catch (_: Exception) {
+            respond("Интернета нет, а музыкальный плеер не найден.")
+        }
+    }
 
     private fun openCategoryApp(keywords: List<String>) {
         val app = installedApps.firstOrNull { entry ->

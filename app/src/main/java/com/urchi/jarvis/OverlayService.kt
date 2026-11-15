@@ -33,7 +33,7 @@ class OverlayService : Service() {
     private var bubble: TextView? = null
     private var panel: View? = null
     private var lastTapAt = 0L
-    private val background = Color.rgb(16, 27, 38)
+    private val panelColor = Color.rgb(16, 27, 38)
     private val accent = Color.rgb(83, 215, 194)
 
     override fun onCreate() {
@@ -128,7 +128,7 @@ class OverlayService : Service() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(16))
-            background = rounded(background, dp(20))
+            background = rounded(panelColor, dp(20))
             elevation = dp(14).toFloat()
         }
         val header = LinearLayout(this).apply {

@@ -370,8 +370,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
                 cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
                 cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
-                cmd == "музыка" || cmd == "включи музыку" || cmd == "открой музыку" || cmd == "запусти музыку" -> openMusicSmart()
-                cmd.contains("vk музыка") || cmd.contains("вк музыка") -> openVkMusicExplicit()
+                cmd.contains("youtube music") || cmd.contains("ютуб музыка") || cmd.contains("ютубмузыка") -> openRequestedMusicApp("youtube")
+                cmd.contains("vk музыка") || cmd.contains("вк музыка") || cmd.contains("вкмузыка") -> openVkMusicExplicit()
+                cmd.contains("приложение музыка") || cmd.contains("музыка от android") || cmd.contains("музыка от андроид") ||
+                    cmd.contains("android music") || cmd.contains("музыкальный плеер") || cmd.contains("музыкальный проигрыватель") ||
+                    cmd.contains("плеер музыки") || cmd == "открой музыку" || cmd == "запусти музыку" || cmd == "музыка" ->
+                    openRequestedMusicApp("local")
+                cmd == "включи музыку" -> openMusicSmart()
                 cmd.contains("музыку без интернета") || cmd.contains("локальную музыку") || cmd.contains("музыку на телефоне") -> openLocalMusicPlayer()
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
@@ -433,7 +438,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else if (target.contains("bluetooth") || target.contains("блютуз")) openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth. Android сам управляет переключателем.")
                     else if (target.contains("калькулятор")) openCategoryApp(listOf("калькулятор", "calculator"))
                     else if (target.contains("камер")) openSettings("android.media.action.IMAGE_CAPTURE", "Открываю камеру.")
-                    else if (target.contains("музык")) openCategoryApp(listOf("музык", "music", "player"))
+                    else if (target.contains("музык")) openRequestedMusicApp("local")
                     else if (target.contains("галере") || target.contains("фото")) openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
                     else if (target.contains("карт") || target.contains("навиг")) openCategoryApp(listOf("карты", "maps", "навига"))
                     else if (pageQuery.isNotBlank()) openWeb("$appTarget $pageQuery")
@@ -443,7 +448,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         else { respond("Не нашёл приложение «" + appTarget + "». Если это сайт, скажи «открой сайт " + appTarget + "», а для поиска — «найди " + appTarget + "».") }
                     }
                 }
-                cmd.contains("музык") || cmd.contains("music") -> openCategoryApp(listOf("музык", "music", "player"))
+                cmd.contains("музык") || cmd.contains("music") -> openRequestedMusicApp("local")
                 cmd.contains("галере") || cmd.contains("фото") || cmd.contains("photos") -> openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
                 cmd.contains("карты") || cmd.contains("навиг") || cmd.contains("maps") -> openCategoryApp(listOf("карты", "maps", "навига"))
                 cmd.contains("интернет") -> openWeb("")
@@ -726,25 +731,53 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun handleConversation(cmd: String): Boolean {
         return when {
-            cmd in listOf("привет","здравствуй","здравствуй jarvis","добрый день","добрый вечер","доброе утро") -> { respond("Привет. Я здесь. Говори."); true }
-            cmd.contains("как дела") || cmd.contains("как ты") -> { respond("Работаю нормально. Готов помочь."); true }
-            cmd.contains("кто ты") || cmd.contains("что ты умеешь") -> { respond("Я JARVIS. Могу открывать приложения, управлять музыкой и настройками, искать информацию и выполнять локальные команды."); true }
-            cmd.contains("что ты умеешь без интернета") -> { respond("Без интернета работают локальные команды, приложения, музыка, громкость, фонарик и настройки. Для актуальных знаний нужен интернет."); true }
-            cmd.contains("спасибо") || cmd.contains("благодар") -> { respond("Пожалуйста."); true }
-            cmd.contains("молодец") || cmd.contains("круто") -> { respond("Принято."); true }
+            cmd in listOf("привет", "здравствуй", "здравствуй jarvis", "добрый день", "добрый вечер", "доброе утро", "ку") -> {
+                respond("Привет. Я на связи. Можем поговорить или заняться делом."); true
+            }
+            cmd.contains("как дела") || cmd.contains("как ты") || cmd.contains("как настроение") -> {
+                respond("Работаю штатно. У меня нет человеческого настроения, но я готов поддержать разговор или помочь с задачей."); true
+            }
+            cmd.contains("давай поговорим") || cmd.contains("поговори со мной") || cmd.contains("есть тема для разговора") -> {
+                respond("Давай. Можем обсудить технологии, игры, фильмы, приложения или любую твою идею. О чём хочешь поговорить?"); true
+            }
+            cmd.contains("мне скучно") || cmd.contains("скучно") -> {
+                respond("Могу предложить короткую загадку, необычный факт или придумать небольшую игру словами. Что выбираешь?"); true
+            }
+            cmd.contains("расскажи историю") || cmd.contains("придумай историю") -> {
+                respond("Однажды маленький робот нашёл старый радиоприёмник. В нём не было батареек, но каждую ночь он ловил один и тот же сигнал: кто-то на далёкой станции просил не выключать свет. Робот решил, что это не помеха, а начало приключения."); true
+            }
+            cmd.contains("расскажи анекдот") || cmd.contains("шутку") -> {
+                respond("Почему программист не любит природу? Там слишком много багов."); true
+            }
+            cmd.contains("загадай загадку") || cmd.contains("загадка") -> {
+                respond("Загадка: чем больше из неё берёшь, тем больше она становится. Что это?"); true
+            }
+            cmd.contains("интересный факт") || cmd.contains("расскажи факт") -> {
+                respond("У осьминога три сердца. Это проверяемый биологический факт, а не выдумка."); true
+            }
+            cmd.contains("кто ты") || cmd.contains("что ты умеешь") -> {
+                respond("Я JARVIS — локальный помощник на Android. Могу запускать приложения, управлять воспроизведением и настройками, работать с заметками и командами. Для свободных ответов на любые вопросы полноценной языковой модели в этой сборке пока нет."); true
+            }
+            cmd.contains("что ты умеешь без интернета") -> {
+                respond("Без интернета работают локальные команды, запуск приложений, музыка, громкость, фонарик, заметки и настройки. Для актуальных сведений из сети нужен интернет и отдельный поиск."); true
+            }
+            cmd.contains("ты человек") || cmd.contains("ты настоящий") -> {
+                respond("Нет. Я программа на телефоне, а не человек. Могу вести простой диалог, но не обладаю сознанием или собственными чувствами."); true
+            }
+            cmd.contains("спасибо") || cmd.contains("благодар") -> { respond("Пожалуйста. Если понадобится продолжить — скажи."); true }
+            cmd.contains("молодец") || cmd.contains("круто") -> { respond("Принято. Продолжаем."); true }
+            cmd.contains("пока") || cmd.contains("до свидания") || cmd.contains("доброй ночи") -> {
+                respond("До связи. JARVIS завершает диалог, но приложение остаётся доступным."); true
+            }
             cmd.contains("повтори ответ") || cmd == "повтори" -> { respond(output.text.toString()); true }
-            cmd.contains("не понял") || cmd.contains("ты не понял") -> { respond("Скажи короче: «открой ChatGPT», «включи музыку» или «открой VPN»."); true }
-            cmd.contains("расскажи анекдот") -> { respond("Почему программист не любит природу? Там слишком много багов."); true }
-            cmd.contains("интересный факт") || cmd.contains("расскажи факт") -> { respond("У осьминога три сердца."); true }
+            cmd.contains("не понял") || cmd.contains("ты не понял") -> {
+                respond("Понял, попробую иначе. Скажи, что именно нужно сделать или объяснить."); true
+            }
             cmd.startsWith("что такое ") || cmd.startsWith("кто такой ") || cmd.startsWith("кто такая ") ||
                 cmd.startsWith("почему ") || cmd.startsWith("зачем ") || cmd.startsWith("как работает ") ||
-                cmd.startsWith("объясни ") || cmd.startsWith("расскажи про ") -> {
-                respond("Я понял вопрос, но в этой версии нет встроенной языковой модели. Я не буду притворяться, что знаю ответ, и не стану молча отправлять тебя в Google.")
-                true
-            }
-            cmd.startsWith("ответь ") || cmd.startsWith("объясни мне ") -> {
-                respond("В этой версии у меня нет встроенной ИИ-модели для свободного разговора. Поэтому я не буду подменять разговор поиском Google.")
-                true
+                cmd.startsWith("объясни ") || cmd.startsWith("расскажи про ") || cmd.startsWith("ответь ") ||
+                cmd.startsWith("объясни мне ") -> {
+                respond("Я понял вопрос, но в этой сборке нет подключённой языковой модели для свободных знаний и рассуждений. Не буду выдумывать ответ или незаметно открывать Google. Могу выполнить явную команду «найди …» либо продолжить обычный короткий диалог."); true
             }
             else -> false
         }
@@ -817,11 +850,71 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun isYouTubeMusicApp(app: AppEntry): Boolean {
+        val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
+        return value.contains("youtube music") || value.contains("ютуб музыка") ||
+            app.packageName == "com.google.android.apps.youtube.music"
+    }
+
+    private fun isLocalMusicApp(app: AppEntry): Boolean {
+        val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
+        val excluded = listOf("vk", "vkontakte", "youtube", "spotify", "deezer", "soundcloud",
+            "yandexmusic", "яндексмузык", "telegram")
+        if (excluded.any { value.contains(it) }) return false
+        return value.contains("музык") || value.contains("music") || value.contains("плеер") ||
+            value.contains("player") || app.packageName == "com.miui.player" ||
+            app.packageName == "com.android.music"
+    }
+
+    private fun openRequestedMusicApp(kind: String) {
+        val candidates = when (kind) {
+            "youtube" -> installedApps.filter { isYouTubeMusicApp(it) }
+            else -> installedApps.filter { isLocalMusicApp(it) }
+                .sortedByDescending { app ->
+                    when (app.packageName) {
+                        "com.miui.player" -> 100
+                        "com.android.music" -> 95
+                        else -> if (app.label.equals("Музыка", true) || app.label.equals("Music", true)) 90 else 50
+                    }
+                }
+        }
+        if (candidates.isEmpty()) {
+            respond(if (kind == "youtube") {
+                "YouTube Music не найден среди установленных приложений. VK Музыку вместо него открывать не буду."
+            } else {
+                "Не нашёл отдельное приложение «Музыка» или локальный музыкальный плеер. VK Музыку вместо него открывать не буду."
+            })
+            return
+        }
+        if (candidates.size == 1) {
+            val app = candidates.first()
+            try {
+                launchApp(app.packageName)
+                respond("Открываю ${app.label}.")
+            } catch (_: Exception) { respond("Не удалось открыть ${app.label}.") }
+            return
+        }
+        val choices = candidates.take(8)
+        AlertDialog.Builder(this)
+            .setTitle(if (kind == "youtube") "Выбери YouTube Music" else "Какой музыкальный плеер открыть?")
+            .setItems(choices.map { it.label }.toTypedArray()) { _, which ->
+                val app = choices[which]
+                try {
+                    launchApp(app.packageName)
+                    respond("Открываю ${app.label}.")
+                } catch (_: Exception) { respond("Не удалось открыть ${app.label}.") }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
     private fun openVkMusicExplicit() {
         val app = findVkMusicApp()
         if (app != null) {
-            launchApp(app.packageName)
-            respond("Открываю VK Музыку.")
+            try {
+                launchApp(app.packageName)
+                respond("Открываю VK Музыку.")
+            } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
         } else {
             respond("Приложение VK Музыка не найдено.")
         }
@@ -831,10 +924,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (hasInternetConnection()) {
             val app = findVkMusicApp()
             if (app != null) {
-                launchApp(app.packageName)
-                respond("Открываю VK Музыку.")
+                try {
+                    launchApp(app.packageName)
+                    respond("Открываю VK Музыку.")
+                } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
             } else {
-                respond("Интернет есть, но приложение VK Музыка не найдено. Установи его или скажи «локальная музыка».")
+                openRequestedMusicApp("local")
             }
         } else {
             openLocalMusicPlayer()
@@ -842,22 +937,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openLocalMusicPlayer() {
-        val app = installedApps.firstOrNull {
-            val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
-            (value.contains("музык") || value.contains("music") || value.contains("player") || value.contains("плеер")) &&
-                !value.contains("video") && !value.contains("видео")
-        }
-        if (app != null) {
-            launchApp(app.packageName)
-            respond("Интернета нет. Открываю локальный музыкальный плеер: ${app.label}.")
-            return
-        }
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW).apply { type = "audio/*" })
-            respond("Открываю установленное приложение для музыки.")
-        } catch (_: Exception) {
-            respond("Интернета нет, а музыкальный плеер не найден.")
-        }
+        openRequestedMusicApp("local")
     }
 
     private fun openCategoryApp(keywords: List<String>) {
@@ -883,6 +963,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "ватсап" to "whatsapp", "вотсап" to "whatsapp", "вацап" to "whatsapp",
             "вконтакте" to "vk", "вк" to "vk", "тикток" to "tiktok",
             "инста" to "instagram", "инстаграм" to "instagram",
+            "фкей" to "fkey", "эфкей" to "fkey", "фкейприложение" to "fkey",
             "дискорд" to "discord", "стим" to "steam", "эпик" to "epicgames",
             "яндекс" to "yandex", "хром" to "chrome",
             "чатджпт" to "chatgpt", "чатжпт" to "chatgpt", "джпт" to "chatgpt", "жпт" to "chatgpt",
@@ -920,7 +1001,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "вконтакте" to listOf("vk", "вконтакте", "вк"),
             "браузер" to listOf("browser", "браузер", "chrome", "firefox", "яндекс"),
             "интернет" to listOf("browser", "chrome", "firefox", "яндекс"),
-            "музыка" to listOf("music", "музык", "плеер", "player"),
             "видео" to listOf("video", "видео", "player", "плеер"),
             "галерея" to listOf("gallery", "галере", "фото", "photos"),
             "фото" to listOf("gallery", "галере", "фото", "photos"),

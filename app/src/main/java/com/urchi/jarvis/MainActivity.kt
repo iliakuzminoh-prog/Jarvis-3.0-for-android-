@@ -741,7 +741,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun findVkMusicApp(): InstalledApp? {
+    private fun findVkMusicApp(): AppEntry? {
         return installedApps.firstOrNull {
             val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
             value.contains("vk") && (value.contains("music") || value.contains("музык"))

@@ -102,7 +102,7 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     if (!moved) {
                         val now = android.os.SystemClock.elapsedRealtime()
-                        if (now - lastTapAt in 1..380) {
+                        if (lastTapAt > 0L && now > lastTapAt && now - lastTapAt <= 380L) {
                             lastTapAt = 0L
                             showPanel()
                         } else {
@@ -157,7 +157,7 @@ class OverlayService : Service() {
             setHintTextColor(Color.LTGRAY)
             setTextColor(Color.WHITE)
             textSize = 15f
-            singleLine = false
+            isSingleLine = false
             minLines = 1
             maxLines = 3
             imeOptions = EditorInfo.IME_ACTION_SEND

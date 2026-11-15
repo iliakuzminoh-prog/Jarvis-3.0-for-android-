@@ -37,4 +37,4 @@ An original native Kotlin Android assistant prototype. Its command handling and 
 
 ## Build
 
-A GitHub Actions workflow is configured to build a debug APK on pushes to the main branch and upload it as an artifact named `JARVIS-debug-apk`. A successful build and APK artifact must be confirmed in Actions before this project can be described as install-ready.
+A GitHub Actions workflow is configured to build a debug APK on pushes to the main branch and upload it as an artifact named `JARVIS-debug-apk-and-build-log`. A successful build and APK artifact must be confirmed in Actions before this project can be described as install-ready.

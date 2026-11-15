@@ -314,6 +314,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
+                cmd.startsWith("найди канал ") || cmd.startsWith("открой канал ") || cmd.startsWith("найди видео ") || cmd.startsWith("открой видео ") -> {
+                    val query = if (cmd.contains("канал")) cmd.substringAfter("канал").trim() else cmd.substringAfter("видео").trim()
+                    openYoutubeSearch(query)
+                }
                 cmd.startsWith("открой сайт ") || cmd.startsWith("открой страницу ") || cmd.startsWith("перейди на сайт ") || cmd.startsWith("зайди на сайт ") -> {
                     val target = cmd.substringAfter("сайт", cmd.substringAfter("страницу", "")).trim()
                     openWebsiteOrSearch(target)

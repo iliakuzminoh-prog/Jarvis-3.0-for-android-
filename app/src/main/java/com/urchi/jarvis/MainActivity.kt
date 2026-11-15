@@ -281,6 +281,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
                     else if (target.contains("браузер")) openWeb("")
                     else if (target.contains("камер")) openSettings("android.media.action.IMAGE_CAPTURE", "Открываю камеру.")
+                    else if (target.contains("музык")) openCategoryApp(listOf("музык", "music", "player"))
+                    else if (target.contains("галере") || target.contains("фото")) openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
+                    else if (target.contains("карт") || target.contains("навиг")) openCategoryApp(listOf("карты", "maps", "навига"))
                     else { respond("Не нашёл приложение «$target». Посмотри список приложений ниже или уточни название.") }
                 }
                 cmd.contains("музык") || cmd.contains("music") -> openCategoryApp(listOf("музык", "music", "player"))

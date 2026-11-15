@@ -840,24 +840,53 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun findApp(query: String): AppEntry? {
         val q = normalizeAppQuery(query)
         if (q.length < 2) return null
+
+        val aliases = mapOf(
+            "ютуб" to listOf("youtube", "ютуб"),
+            "youtube" to listOf("youtube", "ютуб"),
+            "вк" to listOf("vk", "вконтакте", "вк"),
+            "вконтакте" to listOf("vk", "вконтакте", "вк"),
+            "браузер" to listOf("browser", "браузер", "chrome", "firefox", "яндекс"),
+            "интернет" to listOf("browser", "chrome", "firefox", "яндекс"),
+            "музыка" to listOf("music", "музык", "плеер", "player"),
+            "видео" to listOf("video", "видео", "player", "плеер"),
+            "галерея" to listOf("gallery", "галере", "фото", "photos"),
+            "фото" to listOf("gallery", "галере", "фото", "photos"),
+            "карты" to listOf("maps", "карты", "навига"),
+            "навигатор" to listOf("maps", "карты", "навига"),
+            "калькулятор" to listOf("calculator", "калькулятор"),
+            "файлы" to listOf("files", "файлы", "проводник", "filemanager")
+        )
+        val expanded = (listOf(q) + (aliases[q] ?: emptyList())).distinct()
+
         val ranked = installedApps.map { app ->
             val label = normalizeAppQuery(app.label)
-            val pkg = normalizeAppQuery(app.packageName.substringAfterLast('.'))
-            val candidates = listOf(label, pkg).filter { it.isNotBlank() }
-            val score = candidates.maxOfOrNull { candidate ->
-                when {
-                    candidate == q -> 120
-                    candidate.startsWith(q) || q.startsWith(candidate) && candidate.length >= 3 -> 100
-                    candidate.contains(q) || q.contains(candidate) && candidate.length >= 4 -> 82
-                    else -> {
-                        val distance = editDistance(q, candidate)
-                        val allowed = when { q.length >= 9 -> 2; q.length >= 5 -> 1; else -> 0 }
-                        if (distance <= allowed) 70 - distance * 10 else 0
+            val pkg = normalizeAppQuery(app.packageName)
+            val pkgShort = normalizeAppQuery(app.packageName.substringAfterLast('.'))
+            val candidates = listOf(label, pkgShort, pkg).filter { it.isNotBlank() }
+
+            val score = expanded.maxOfOrNull { term ->
+                candidates.maxOfOrNull { candidate ->
+                    when {
+                        candidate == term -> 140
+                        candidate.startsWith(term) -> 115
+                        candidate.contains(term) -> 95
+                        term.length >= 4 && term.contains(candidate) -> 80
+                        else -> {
+                            val distance = editDistance(term, candidate)
+                            val allowed = when {
+                                term.length >= 9 -> 2
+                                term.length >= 6 -> 1
+                                else -> 0
+                            }
+                            if (distance <= allowed) 65 - distance * 10 else 0
+                        }
                     }
-                }
+                } ?: 0
             } ?: 0
             app to score
         }.filter { it.second > 0 }.sortedByDescending { it.second }
+
         if (ranked.isEmpty()) return null
         if (ranked.size > 1 && ranked[0].second == ranked[1].second) return null
         return ranked.first().first

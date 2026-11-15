@@ -304,6 +304,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val cmd = raw.trim().lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
+        if (handleConversation(cmd)) return
         if (commandStack.size >= 8 || !commandStack.add(cmd)) {
             respond("Обнаружен цикл или слишком глубокая цепочка команд. Остановил выполнение.")
             return
@@ -711,6 +712,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         if (app == null) respond("Claude не найден среди установленных приложений.")
         else { launchApp(app.packageName); respond("Открываю Claude.") }
+    }
+
+    private fun handleConversation(cmd: String): Boolean {
+        return when {
+            cmd in listOf("привет","здравствуй","здравствуй jarvis","добрый день","добрый вечер","доброе утро") -> { respond("Привет. Я здесь. Говори."); true }
+            cmd.contains("как дела") || cmd.contains("как ты") -> { respond("Работаю нормально. Готов помочь."); true }
+            cmd.contains("кто ты") || cmd.contains("что ты умеешь") -> { respond("Я JARVIS. Могу открывать приложения, управлять музыкой и настройками, искать информацию и выполнять локальные команды."); true }
+            cmd.contains("что ты умеешь без интернета") -> { respond("Без интернета работают локальные команды, приложения, музыка, громкость, фонарик и настройки. Для актуальных знаний нужен интернет."); true }
+            cmd.contains("спасибо") || cmd.contains("благодар") -> { respond("Пожалуйста."); true }
+            cmd.contains("молодец") || cmd.contains("круто") -> { respond("Принято."); true }
+            cmd.contains("повтори ответ") || cmd == "повтори" -> { respond(output.text.toString()); true }
+            cmd.contains("не понял") || cmd.contains("ты не понял") -> { respond("Скажи короче: «открой ChatGPT», «включи музыку» или «открой VPN»."); true }
+            cmd.contains("расскажи анекдот") -> { respond("Почему программист не любит природу? Там слишком много багов."); true }
+            cmd.contains("интересный факт") || cmd.contains("расскажи факт") -> { respond("У осьминога три сердца."); true }
+            cmd.startsWith("что такое ") || cmd.startsWith("кто такой ") || cmd.startsWith("кто такая ") ||
+                cmd.startsWith("почему ") || cmd.startsWith("зачем ") || cmd.startsWith("как работает ") ||
+                cmd.startsWith("объясни ") || cmd.startsWith("расскажи про ") -> {
+                respond("Я понял вопрос, но в этой версии нет встроенной языковой модели. Я не буду притворяться, что знаю ответ, и не стану молча отправлять тебя в Google.")
+                true
+            }
+            cmd.startsWith("ответь ") || cmd.startsWith("объясни мне ") -> {
+                respond("В этой версии у меня нет встроенной ИИ-модели для свободного разговора. Поэтому я не буду подменять разговор поиском Google.")
+                true
+            }
+            else -> false
+        }
     }
 
     private fun openVpn() {

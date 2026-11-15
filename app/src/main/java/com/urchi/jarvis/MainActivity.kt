@@ -129,6 +129,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "Bluetooth" to "открой bluetooth",
             "Включить VPN" to "включи vpn",
             "Текущее время" to "который час",
+            "Батарея" to "покажи заряд батареи",
+            "Память" to "сколько свободной памяти",
+            "Пауза музыки" to "пауза",
             "Помощь" to "помощь"
         )
         actions.chunked(2).forEach { pair ->

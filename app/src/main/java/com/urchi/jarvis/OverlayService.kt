@@ -56,21 +56,21 @@ class OverlayService : Service() {
     private fun showBubble() {
         val view = TextView(this).apply {
             text = "J"
-            textSize = 23f
+            textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(5, 24, 27))
-            background = rounded(accent, dp(28))
+            background = sideBubbleBackground()
             elevation = dp(8).toFloat()
             contentDescription = "JARVIS. Дважды нажми, чтобы открыть быстрый запрос"
         }
         val params = WindowManager.LayoutParams(
-            dp(56), dp(56), overlayType(),
+            dp(44), dp(50), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = dp(16)
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
             y = dp(220)
         }
         var downRawX = 0f
@@ -228,6 +228,11 @@ class OverlayService : Service() {
             background = rounded(if (primary) accent else Color.rgb(38, 55, 69), dp(12))
             setOnClickListener { action() }
         }
+    }
+
+    private fun sideBubbleBackground() = GradientDrawable().apply {
+        setColor(accent)
+        cornerRadii = floatArrayOf(0f, 0f, dp(25).toFloat(), dp(25).toFloat(), dp(25).toFloat(), dp(25).toFloat(), 0f, 0f)
     }
 
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {

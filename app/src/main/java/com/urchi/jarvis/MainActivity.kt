@@ -233,6 +233,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (cmd.contains(" потом ")) {
                 val parts = cmd.split(" потом ").map { it.trim() }.filter { it.isNotBlank() }
                 if (parts.size > 5) { respond("Одна цепочка может содержать не больше пяти шагов."); return }
+                if (parts.size > 5) { respond("Одна цепочка может содержать не больше пяти шагов."); return }
                 respond("Выполняю последовательность из ${parts.size} действий.")
                 parts.forEach { runCommand(it) }
                 return

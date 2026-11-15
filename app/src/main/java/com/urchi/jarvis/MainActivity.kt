@@ -75,6 +75,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun enableOverlay() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            respond("Для прозрачной работы плавающего помощника нужно разрешить его постоянное уведомление.")
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 53)
+            return
+        }
         if (!android.provider.Settings.canDrawOverlays(this)) {
             respond("Для плавающего окна нужно разрешить JARVIS показываться поверх других приложений.")
             val permissionIntent = Intent(
@@ -914,6 +920,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
         else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
+        else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
+        else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")
     }
 
     @Deprecated("Deprecated by Android; retained for broad device compatibility")

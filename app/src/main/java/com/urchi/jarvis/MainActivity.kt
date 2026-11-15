@@ -946,7 +946,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun extractMediaQuery(cmd: String, markers: List<String>): String {
         var value = cmd
         markers.forEach { marker -> value = value.replace(marker, " ") }
-        return value.replace(Regex("\\s+"), " ").trim()
+        value = value.replace(Regex("\\b(в|на)\\s+(ютубе|youtube|вк|vk)\\b"), " ")
+        value = value.replace(Regex("\\s+"), " ").trim()
+        return value
     }
 
     private fun openVkVideoSearch(query: String) {

@@ -323,6 +323,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 return
             }
             when {
+                cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
+                cmd == "адгуард" || cmd == "adguard" || cmd == "открой адгуард" || cmd == "запусти адгуард" -> openAdGuardVpn()
+                cmd == "открой ии" || cmd == "запусти ии" || cmd == "включи ии" || cmd == "открой ai" || cmd == "запусти ai" -> openAiRandom()
+                cmd == "открой чат джпт" || cmd == "открой чатжпт" || cmd == "открой chatgpt" || cmd == "запусти чат джпт" || cmd == "запусти chatgpt" || cmd == "открой джпт" -> openChatGpt()
+                cmd == "открой клод" || cmd == "открой claude" || cmd == "запусти клод" || cmd == "запусти claude" -> openClaude()
                 cmd.contains("выключи плавающее окно") || cmd.contains("убери кнопку jarvis") -> disableOverlay()
                 cmd.contains("плавающее окно") || cmd.contains("включи плавающий jarvis") -> enableOverlay()
                 cmd.startsWith("научи команду ") -> teachCommand(raw)
@@ -370,8 +375,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
-                cmd.contains("адгуард") || cmd.contains("adguard") -> openAdGuardVpn()
-                cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd.contains("wi-fi") || cmd.contains("wifi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
                 cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
@@ -426,7 +429,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else {
                         val close = findApp(appTarget)
                         if (close != null) { launchApp(close.packageName); respond("Нашёл похожее приложение: ${close.label}. Открываю.") }
-                        else { respond("Не нашёл приложение «$appTarget». Проверяю, не является ли это названием сайта."); openWebsiteOrSearch(appTarget) }
+                        else { respond("Не нашёл приложение «" + appTarget + "». Если это сайт, скажи «открой сайт " + appTarget + "», а для поиска — «найди " + appTarget + "».") }
                     }
                 }
                 cmd.contains("музык") || cmd.contains("music") -> openCategoryApp(listOf("музык", "music", "player"))
@@ -681,8 +684,37 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun openAiRandom() {
+        val apps = installedApps.filter {
+            val v = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            v.contains("chatgpt") || v.contains("openai") || v.contains("claude") || v.contains("anthropic")
+        }.distinctBy { it.packageName }
+        if (apps.isEmpty()) { respond("Не нашёл ChatGPT или Claude. Google вместо ИИ открывать не буду."); return }
+        val app = apps.random()
+        try { launchApp(app.packageName); respond("Открываю ИИ: " + app.label + ".") }
+        catch (_: Exception) { respond("Не удалось открыть " + app.label + ".") }
+    }
+
+    private fun openChatGpt() {
+        val app = installedApps.firstOrNull {
+            val v = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            v.contains("chatgpt") || v.contains("openai") || v.contains("чатджпт")
+        }
+        if (app == null) respond("ChatGPT не найден среди установленных приложений.")
+        else { launchApp(app.packageName); respond("Открываю ChatGPT.") }
+    }
+
+    private fun openClaude() {
+        val app = installedApps.firstOrNull {
+            val v = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            v.contains("claude") || v.contains("anthropic") || v.contains("клод")
+        }
+        if (app == null) respond("Claude не найден среди установленных приложений.")
+        else { launchApp(app.packageName); respond("Открываю Claude.") }
+    }
+
     private fun openVpn() {
-        vpnCandidates = findVpnCandidates()
+        vpnCandidates = findVpnCandidates().shuffled()
         vpnIndex = -1
         nextVpn()
     }
@@ -711,7 +743,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun nextVpn() {
-        if (vpnCandidates.isEmpty()) vpnCandidates = findVpnCandidates()
+        if (vpnCandidates.isEmpty()) vpnCandidates = findVpnCandidates().shuffled()
         if (vpnCandidates.isEmpty()) {
             respond("Не нашёл известный VPN-клиент среди запускаемых приложений. Открываю системные настройки VPN.")
             openSettings("android.settings.VPN_SETTINGS", "Выбери VPN-клиент в настройках Android.")
@@ -815,7 +847,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "вконтакте" to "vk", "вк" to "vk", "тикток" to "tiktok",
             "инста" to "instagram", "инстаграм" to "instagram",
             "дискорд" to "discord", "стим" to "steam", "эпик" to "epicgames",
-            "яндекс" to "yandex", "хром" to "chrome"
+            "яндекс" to "yandex", "хром" to "chrome",
+            "чатджпт" to "chatgpt", "чатжпт" to "chatgpt", "джпт" to "chatgpt", "жпт" to "chatgpt",
+            "клод" to "claude", "антропик" to "claude",
+            "ии" to "ai", "айи" to "ai", "ай" to "ai"
         )
         cleaned = aliases[cleaned] ?: cleaned
         return cleaned
@@ -855,7 +890,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "карты" to listOf("maps", "карты", "навига"),
             "навигатор" to listOf("maps", "карты", "навига"),
             "калькулятор" to listOf("calculator", "калькулятор"),
-            "файлы" to listOf("files", "файлы", "проводник", "filemanager")
+            "файлы" to listOf("files", "файлы", "проводник", "filemanager"),
+            "chatgpt" to listOf("chatgpt", "openai", "чат", "джпт"),
+            "claude" to listOf("claude", "anthropic", "клод"),
+            "ai" to listOf("chatgpt", "claude", "openai", "anthropic", "ии")
         )
         val expanded = (listOf(q) + (aliases[q] ?: emptyList())).distinct()
 

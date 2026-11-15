@@ -211,6 +211,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val list = root.findViewWithTag<LinearLayout>("app_list") ?: return
         list.removeAllViews()
         val matches = installedApps.filter { it.label.contains(filter, true) || it.packageName.contains(filter, true) }
+        list.addView(TextView(this).apply {
+            text = "Найдено: ${matches.size} • отображается: ${minOf(matches.size, 100)}"
+            textSize = 11f
+            setTextColor(Color.GRAY)
+            setPadding(dp(4), dp(4), dp(4), dp(8))
+        })
         matches.take(100).forEach { app ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -573,7 +579,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             "vpn", "впн", "wireguard", "openvpn", "tunnel", "прокси", "proton",
             "warp", "cloudflare", "psiphon", "amnezia", "outline", "adguard",
             "windscribe", "hide.me", "surfshark", "nordvpn", "expressvpn",
-            "riseup", "tor browser"
+            "riseup", "v2ray", "sing-box", "nekobox", "hiddify", "shadowsocks",
+            "karing", "v2box", "clash"
         )
         return installedApps.filter { app ->
             val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
@@ -639,11 +646,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
         val aliases = mapOf(
             "ютуб" to "youtube", "ютуп" to "youtube", "ютюб" to "youtube", "ютубе" to "youtube",
+            "yutub" to "youtube", "yutube" to "youtube", "youtub" to "youtube",
             "телега" to "telegram", "телеграм" to "telegram", "телеграмм" to "telegram",
             "ватсап" to "whatsapp", "вотсап" to "whatsapp", "вацап" to "whatsapp",
             "вконтакте" to "vk", "вк" to "vk", "тикток" to "tiktok",
             "инста" to "instagram", "инстаграм" to "instagram",
-            "хром" to "chrome", "браузер хром" to "chrome"
+            "дискорд" to "discord", "стим" to "steam", "эпик" to "epicgames",
+            "яндекс" to "yandex", "хром" to "chrome"
         )
         cleaned = aliases[cleaned] ?: cleaned
         return cleaned

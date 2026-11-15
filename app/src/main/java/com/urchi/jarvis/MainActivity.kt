@@ -232,6 +232,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             if (cmd.contains(" потом ")) {
                 val parts = cmd.split(" потом ").map { it.trim() }.filter { it.isNotBlank() }
+                if (parts.size > 5) { respond("Одна цепочка может содержать не больше пяти шагов."); return }
                 respond("Выполняю последовательность из ${parts.size} действий.")
                 parts.forEach { runCommand(it) }
                 return
@@ -264,8 +265,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
                 cmd.startsWith("открой ") || cmd.startsWith("запусти ") || cmd.startsWith("включи ") -> {
                     val target = cmd.substringAfter(" ").trim()
-                    val app = installedApps.firstOrNull { it.label.equals(target, true) }
-                        ?: installedApps.firstOrNull { it.label.contains(target, true) && target.length >= 3 }
+                    val app = findApp(target)
                     if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
                     else if (target.contains("браузер")) openWeb("")
                     else if (target.contains("камер")) openSettings("android.media.action.IMAGE_CAPTURE", "Открываю камеру.")
@@ -434,6 +434,33 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (_: Exception) {
             respond("${candidate.label} не удалось открыть. Попробуй команду «следующий VPN» для следующего найденного приложения.")
         }
+    }
+
+
+    private fun normalizeAppQuery(value: String): String {
+        return value.lowercase(Locale.getDefault())
+            .replace(Regex("^(приложение|программу|программа|app)\\s+"), "")
+            .replace(Regex("[^\\p{L}\\p{N}]"), "")
+    }
+
+    private fun findApp(query: String): AppEntry? {
+        val q = normalizeAppQuery(query)
+        if (q.length < 2) return null
+        val ranked = installedApps.map { app ->
+            val label = normalizeAppQuery(app.label)
+            val pkg = normalizeAppQuery(app.packageName.substringAfterLast('.'))
+            val score = when {
+                label == q || pkg == q -> 100
+                label.startsWith(q) || pkg.startsWith(q) -> 80
+                label.contains(q) || pkg.contains(q) -> 65
+                q.contains(label) && label.length >= 3 -> 55
+                else -> 0
+            }
+            app to score
+        }.filter { it.second > 0 }.sortedByDescending { it.second }
+        if (ranked.isEmpty()) return null
+        if (ranked.size > 1 && ranked[0].second == ranked[1].second) return null
+        return ranked.first().first
     }
 
     private fun launchApp(packageName: String) {

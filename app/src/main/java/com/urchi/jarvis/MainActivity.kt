@@ -253,7 +253,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
-                cmd.contains("wi-fi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
+                cmd.contains("wi-fi") || cmd.contains("wifi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
                 cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
@@ -309,8 +309,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showNotes() {
         val notes = prefs.all.filterKeys { it.startsWith("note_") }.toSortedMap()
         if (notes.isEmpty()) { respond("Сохранённых заметок пока нет."); return }
-        val text = notes.values.joinToString("\\n") { it.toString() }
-        output.text = "ТВОИ ЗАМЕТКИ\\n$text"
+        val text = notes.values.joinToString("\n") { it.toString() }
+        output.text = "ТВОИ ЗАМЕТКИ\n$text"
         say("У тебя ${notes.size} заметок. Они показаны на экране.")
     }
 
@@ -319,12 +319,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (match == null) { respond("Укажи длительность, например: поставь таймер на 5 минут."); return }
         val amount = match.groupValues[1].toIntOrNull() ?: 0
         val unit = match.groupValues[2]
-        val seconds = when {
-            unit.startsWith("сек") -> amount
-            unit.startsWith("мин") -> amount * 60
-            else -> amount * 3600
+        val secondsLong = when {
+            unit.startsWith("сек") -> amount.toLong()
+            unit.startsWith("мин") -> amount.toLong() * 60L
+            else -> amount.toLong() * 3600L
         }
-        if (seconds !in 1..86400) { respond("Таймер должен быть от одной секунды до 24 часов."); return }
+        if (secondsLong !in 1L..86400L) { respond("Таймер должен быть от одной секунды до 24 часов."); return }
+        val seconds = secondsLong.toInt()
         try {
             startActivity(Intent(AlarmClock.ACTION_SET_TIMER).putExtra(AlarmClock.EXTRA_LENGTH, seconds).putExtra(AlarmClock.EXTRA_SKIP_UI, false))
             respond("Передал таймер системным часам. Проверь и запусти его.")

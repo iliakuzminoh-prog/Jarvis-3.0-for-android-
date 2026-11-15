@@ -279,11 +279,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else if (target.contains("камер")) openSettings("android.media.action.IMAGE_CAPTURE", "Открываю камеру.")
                     else { respond("Не нашёл приложение «$target». Посмотри список приложений ниже или уточни название.") }
                 }
+                cmd.contains("музык") || cmd.contains("music") -> openCategoryApp(listOf("музык", "music", "player"))
+                cmd.contains("галере") || cmd.contains("фото") || cmd.contains("photos") -> openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
+                cmd.contains("карты") || cmd.contains("навиг") || cmd.contains("maps") -> openCategoryApp(listOf("карты", "maps", "навига"))
                 cmd.contains("интернет") -> openWeb("")
                 else -> {
-                    val candidate = installedApps.firstOrNull { it.label.contains(cmd, true) && cmd.length >= 3 }
+                    val candidate = findApp(cmd)
                     if (candidate != null) { launchApp(candidate.packageName); respond("Похоже, ты имел в виду ${candidate.label}. Открываю.") }
-                    else respond("Я не нашёл готовую команду для этого запроса. Могу открыть приложение, системные настройки или выполнить поиск в интернете. Скажи «помощь» для списка.")
+                    else if (listOf("что ", "как ", "почему ", "когда ", "где ", "зачем ").any { cmd.startsWith(it) }) {
+                        respond("Не нашёл локальную команду. Ищу ответ в интернете.")
+                        openWeb(raw)
+                    } else respond("Не понял задачу. Могу открыть приложение, системные настройки или выполнить поиск. Скажи «помощь» для списка команд.")
                 }
             }
         } catch (e: Exception) { respond("Не удалось выполнить действие: ${e.localizedMessage ?: "ошибка Android"}.") }
@@ -456,6 +462,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+
+    private fun openCategoryApp(keywords: List<String>) {
+        val app = installedApps.firstOrNull { entry ->
+            val label = entry.label.lowercase(Locale.getDefault())
+            keywords.any { label.contains(it) }
+        }
+        if (app == null) respond("Не нашёл подходящее приложение в установленном списке.")
+        else {
+            launchApp(app.packageName)
+            respond("Открываю ${app.label}.")
+        }
+    }
 
     private fun normalizeAppQuery(value: String): String {
         return value.lowercase(Locale.getDefault())

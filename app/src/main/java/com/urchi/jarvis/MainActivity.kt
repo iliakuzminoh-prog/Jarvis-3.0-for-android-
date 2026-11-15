@@ -62,6 +62,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         val languageStatus = tts.setLanguage(Locale("ru", "RU"))
+        val localRussianVoice = tts.voices
+            ?.filter { it.locale.language == "ru" && !it.isNetworkConnectionRequired }
+            ?.maxByOrNull { it.quality }
+        if (localRussianVoice != null) tts.voice = localRussianVoice
         tts.setSpeechRate(1.07f)
         tts.setPitch(1.02f)
         ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&

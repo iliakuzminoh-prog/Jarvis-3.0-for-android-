@@ -56,7 +56,7 @@ class OverlayService : Service() {
     private fun showBubble() {
         val view = TextView(this).apply {
             text = "J"
-            textSize = 18f
+            textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(5, 24, 27))
@@ -65,7 +65,7 @@ class OverlayService : Service() {
             contentDescription = "JARVIS. Дважды нажми, чтобы открыть быстрый запрос"
         }
         val params = WindowManager.LayoutParams(
-            dp(44), dp(50), overlayType(),
+            dp(32), dp(42), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {

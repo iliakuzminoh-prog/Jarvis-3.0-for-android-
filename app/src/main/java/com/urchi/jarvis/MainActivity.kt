@@ -318,7 +318,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val appTarget = if (pageMarker != null) target.substring(0, pageMarker.range.first).trim() else target
                     val pageQuery = if (pageMarker != null) target.substring(pageMarker.range.last + 1).trim() else ""
                     val app = findApp(appTarget)
-                    if (app != null && pageQuery.isNotBlank() && isYouTubeApp(app)) {
+                    if (pageQuery.isNotBlank() && normalizeAppQuery(appTarget) == "youtube") {
+                        openYoutubeSearch(pageQuery)
+                    }
+                    else if (app != null && pageQuery.isNotBlank() && isYouTubeApp(app)) {
                         openYoutubeSearch(pageQuery)
                     }
                     else if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
@@ -565,27 +568,40 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         respond("Сеть подключена. Тип: " + when { vpn -> "VPN-туннель"; wifi -> "Wi-Fi"; mobile -> "мобильная сеть"; else -> "другая сеть" } + ".")
     }
 
-    private fun openVpn() {
-        val vpnWords = listOf("vpn", "впн", "wireguard", "openvpn", "tunnel", "прокси")
-        vpnCandidates = installedApps.filter { app ->
-            (app.label + " " + app.packageName).lowercase().let { s -> vpnWords.any { s.contains(it) } }
-        }.sortedBy { app ->
-            val s = (app.label + " " + app.packageName).lowercase()
+    private fun findVpnCandidates(): List<AppEntry> {
+        val vpnWords = listOf(
+            "vpn", "впн", "wireguard", "openvpn", "tunnel", "прокси", "proton",
+            "warp", "cloudflare", "psiphon", "amnezia", "outline", "adguard",
+            "windscribe", "hide.me", "surfshark", "nordvpn", "expressvpn",
+            "riseup", "tor browser"
+        )
+        return installedApps.filter { app ->
+            val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
+            vpnWords.any { value.contains(it) }
+        }.distinctBy { it.packageName }.sortedBy { app ->
+            val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
             when {
-                s.contains("wireguard") -> 0
-                s.contains("proton") -> 1
-                s.contains("openvpn") -> 2
-                s.contains("1.1.1.1") || s.contains("warp") -> 3
-                else -> 4
+                value.contains("wireguard") -> 0
+                value.contains("proton") -> 1
+                value.contains("amnezia") -> 2
+                value.contains("openvpn") -> 3
+                value.contains("warp") || value.contains("1.1.1.1") -> 4
+                value.contains("windscribe") -> 5
+                else -> 6
             }
         }
+    }
+
+    private fun openVpn() {
+        vpnCandidates = findVpnCandidates()
         vpnIndex = -1
         nextVpn()
     }
 
     private fun nextVpn() {
+        if (vpnCandidates.isEmpty()) vpnCandidates = findVpnCandidates()
         if (vpnCandidates.isEmpty()) {
-            respond("Не нашёл распознаваемый VPN-клиент среди приложений. Открываю системные настройки VPN.")
+            respond("Не нашёл известный VPN-клиент среди запускаемых приложений. Открываю системные настройки VPN.")
             openSettings("android.settings.VPN_SETTINGS", "Выбери VPN-клиент в настройках Android.")
             return
         }

@@ -370,7 +370,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
                 cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
                 cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
-                cmd.contains("youtube music") || cmd.contains("ютуб музыка") || cmd.contains("ютубмузыка") -> openRequestedMusicApp("youtube")
+                ((cmd.contains("youtube") || cmd.contains("ютуб")) && cmd.contains("музык")) -> openRequestedMusicApp("youtube")
                 cmd.contains("vk музыка") || cmd.contains("вк музыка") || cmd.contains("вкмузыка") -> openVkMusicExplicit()
                 cmd.contains("приложение музыка") || cmd.contains("музыка от android") || cmd.contains("музыка от андроид") ||
                     cmd.contains("android music") || cmd.contains("музыкальный плеер") || cmd.contains("музыкальный проигрыватель") ||

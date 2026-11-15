@@ -373,6 +373,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
+                cmd.contains("вк видео") || cmd.contains("vk видео") || cmd.contains("видео вк") -> {
+                    val query = cmd.replace(Regex("^.*?(вк видео|vk видео|видео вк)\\s*"), "").trim()
+                    openVkVideoSearch(query)
+                }
                 cmd.startsWith("найди канал ") || cmd.startsWith("открой канал ") || cmd.startsWith("найди видео ") || cmd.startsWith("открой видео ") -> {
                     val query = if (cmd.contains("канал")) cmd.substringAfter("канал").trim() else cmd.substringAfter("видео").trim()
                     openYoutubeSearch(query)
@@ -896,6 +900,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (_: Exception) {
             respond("Не удалось открыть сайт. Ищу его в Google.")
             openWeb(target)
+        }
+    }
+
+    private fun openVkVideoSearch(query: String) {
+        val safeQuery = query.trim()
+        val url = if (safeQuery.isBlank()) "https://vk.com/video" else "https://vk.com/video?q=" + Uri.encode(safeQuery)
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            respond(if (safeQuery.isBlank()) "Открываю VK Видео." else "Открываю VK Видео по запросу: $safeQuery.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть VK Видео.")
         }
     }
 

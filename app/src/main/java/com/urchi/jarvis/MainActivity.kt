@@ -785,12 +785,29 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun openWebsiteOrSearch(rawTarget: String) {
         val target = rawTarget.trim().trimEnd('.', ',', '!', '?')
         if (target.isBlank()) { openWeb(""); return }
+        val siteAliases = mapOf(
+            "ютуб" to "https://www.youtube.com/",
+            "youtube" to "https://www.youtube.com/",
+            "гугл" to "https://www.google.com/",
+            "google" to "https://www.google.com/",
+            "вк" to "https://vk.com/",
+            "вконтакте" to "https://vk.com/",
+            "яндекс" to "https://ya.ru/",
+            "yandex" to "https://ya.ru/",
+            "википедия" to "https://ru.wikipedia.org/",
+            "wikipedia" to "https://www.wikipedia.org/",
+            "гитхаб" to "https://github.com/",
+            "github" to "https://github.com/",
+            "почта гугл" to "https://mail.google.com/",
+            "gmail" to "https://mail.google.com/"
+        )
+        val aliasUrl = siteAliases[target.lowercase(Locale.ROOT)]
         val hasDomain = Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(target)
-        if (!hasDomain) { openWeb(target); return }
-        val url = if (target.startsWith("http://", true) || target.startsWith("https://", true)) target else "https://$target"
+        if (aliasUrl == null && !hasDomain) { openWeb(target); return }
+        val url = aliasUrl ?: if (target.startsWith("http://", true) || target.startsWith("https://", true)) target else "https://$target"
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            respond("Открываю сайт $target.")
+            respond("Открываю сайт: $target.")
         } catch (_: Exception) {
             respond("Не удалось открыть сайт. Ищу его в Google.")
             openWeb(target)

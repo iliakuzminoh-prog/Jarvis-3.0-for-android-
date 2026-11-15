@@ -5,10 +5,14 @@ import android.provider.AlarmClock
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Build
+import android.os.StatFs
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -52,8 +56,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        ttsReady = status == TextToSpeech.SUCCESS
-        if (ttsReady) tts.language = Locale("ru", "RU")
+        if (status != TextToSpeech.SUCCESS) {
+            ttsReady = false
+            return
+        }
+        val languageStatus = tts.setLanguage(Locale("ru", "RU"))
+        ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&
+            languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
     }
 
     private fun buildUi() {
@@ -254,6 +263,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
                 cmd.contains("фонарик") -> toggleTorch(cmd.contains("выключ"))
                 cmd.contains("заряд") || cmd.contains("батаре") -> showBattery()
+                cmd.contains("информация о телефоне") || cmd.contains("характеристики телефона") -> showDeviceInfo()
+                cmd.contains("свободная память") || cmd.contains("сколько памяти") || cmd.contains("место на телефоне") -> showStorage()
+                cmd.startsWith("скопируй ") || cmd.startsWith("скопировать ") -> copyToClipboard(raw.substringAfter(" "))
+                cmd.startsWith("поделись ") || cmd.startsWith("поделиться ") -> shareText(raw.substringAfter(" "))
+                cmd.startsWith("позвони ") || cmd.startsWith("набери номер ") -> openDialer(raw.substringAfter(" "))
+                cmd.startsWith("напиши смс ") || cmd.startsWith("отправь смс ") -> composeSms(raw.substringAfter(" "))
+                cmd.startsWith("маршрут до ") || cmd.startsWith("построй маршрут до ") || cmd.startsWith("найди адрес ") -> openMap(raw.substringAfter("до ").takeIf { cmd.contains("до ") } ?: raw.substringAfter("адрес "))
                 cmd.contains("громче") || cmd.contains("увеличь громкость") -> changeVolume(true)
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
@@ -283,7 +299,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val target = cmd.substringAfter(" ").trim()
                     val app = findApp(target)
                     if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
-                    else if (target.contains("браузер")) openWeb("")
+                    else if (target.contains("браузер") || target.contains("интернет")) openWeb("")
+                    else if (target.contains("wi-fi") || target.contains("wifi") || target.contains("вайфай")) openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi. Android сам управляет переключателем.")
+                    else if (target.contains("bluetooth") || target.contains("блютуз")) openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth. Android сам управляет переключателем.")
+                    else if (target.contains("калькулятор")) openCategoryApp(listOf("калькулятор", "calculator"))
                     else if (target.contains("камер")) openSettings("android.media.action.IMAGE_CAPTURE", "Открываю камеру.")
                     else if (target.contains("музык")) openCategoryApp(listOf("музык", "music", "player"))
                     else if (target.contains("галере") || target.contains("фото")) openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
@@ -412,6 +431,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (_: Exception) { respond("Системный выбор файлов недоступен.") }
     }
 
+    private fun showDeviceInfo() {
+        respond("Устройство: ${Build.MANUFACTURER} ${Build.MODEL}. Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}).")
+    }
+
+    private fun showStorage() {
+        try {
+            val stats = StatFs(filesDir.absolutePath)
+            val freeMb = stats.availableBytes / (1024L * 1024L)
+            val totalMb = stats.totalBytes / (1024L * 1024L)
+            respond("Во внутреннем разделе данных доступно примерно $freeMb МБ из $totalMb МБ. Это не полный отчёт обо всех разделах телефона.")
+        } catch (_: Exception) {
+            respond("Не удалось прочитать сведения о свободном месте.")
+        }
+    }
+
     private fun showBattery() {
         val manager = getSystemService(BATTERY_SERVICE) as BatteryManager
         val level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -429,7 +463,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun toggleTorch(turnOff: Boolean) {
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 77)
-            respond("Android запросил разрешение камеры, необходимое для фонарика. После выдачи повтори команду.")
+            respond("Android запросил разрешение камеры для фонарика. Если разрешишь, фонарик включится.")
             return
         }
         try {
@@ -568,6 +602,55 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         catch (_: Exception) { respond("Эти настройки недоступны на данной версии Android.") }
     }
 
+    private fun copyToClipboard(value: String) {
+        if (value.isBlank()) { respond("Укажи текст после команды «скопируй»."); return }
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("JARVIS", value))
+        respond("Текст скопирован в буфер обмена.")
+    }
+
+    private fun shareText(value: String) {
+        if (value.isBlank()) { respond("Укажи текст, которым нужно поделиться."); return }
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, value)
+        }
+        startActivity(Intent.createChooser(send, "Поделиться через"))
+        respond("Открыл системное меню отправки. Выбери приложение и получателя.")
+    }
+
+    private fun openDialer(value: String) {
+        val number = value.trim()
+        if (number.isBlank()) { respond("Укажи номер телефона."); return }
+        startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number))))
+        respond("Открыл номеронабиратель. Вызов не выполняется автоматически.")
+    }
+
+    private fun composeSms(value: String) {
+        val parts = value.trim().split(Regex("\\s+", 2))
+        if (parts.size < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            respond("Формат: напиши смс +79990000000 текст сообщения.")
+            return
+        }
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(parts[0]))).apply {
+            putExtra("sms_body", parts[1])
+        }
+        startActivity(intent)
+        respond("Открыл приложение сообщений с подготовленным текстом. Само сообщение не отправлено.")
+    }
+
+    private fun openMap(destination: String) {
+        val place = destination.trim()
+        if (place.isBlank()) { respond("Укажи место назначения."); return }
+        val uri = Uri.parse("geo:0,0?q=" + Uri.encode(place))
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            respond("Открываю карту для поиска: $place")
+        } catch (_: Exception) {
+            openWeb("карта маршрут $place")
+        }
+    }
+
     private fun openWeb(query: String) {
         val uri = Uri.parse("https://www.google.com/search?q=" + Uri.encode(query))
         startActivity(Intent(Intent.ACTION_VIEW, uri))
@@ -608,7 +691,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

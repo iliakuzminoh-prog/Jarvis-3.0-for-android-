@@ -340,6 +340,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
+                cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
+                cmd.contains("открой галерею") || cmd == "галерея" || cmd.contains("открой фото") -> openGallery()
+                cmd.contains("скачанные файлы") || cmd.contains("открой загрузки") -> openDownloads()
+                cmd.contains("уведомления приложения") || cmd.contains("настройки уведомлений") -> openNotificationSettings()
+                cmd.contains("энергосбережение") || cmd.contains("экономия батареи") -> openBatterySettings()
+                cmd.contains("яркость экрана") || cmd.contains("настройки яркости") -> openDisplaySettings()
+                cmd.contains("дата и время") || cmd.contains("настройки времени") -> openDateTimeSettings()
+                cmd.contains("язык телефона") || cmd.contains("язык системы") -> openLanguageSettings()
+                cmd.contains("приложения по умолчанию") || cmd.contains("приложение по умолчанию") -> openDefaultAppsSettings()
+                cmd.contains("не беспокоить") || cmd.contains("режим не беспокоить") -> openDoNotDisturbSettings()
                 cmd.contains("фонарик") -> toggleTorch(cmd.contains("выключ"))
                 cmd.contains("заряд") || cmd.contains("батаре") -> showBattery()
                 cmd.contains("информация о телефоне") || cmd.contains("характеристики телефона") -> showDeviceInfo()
@@ -1182,7 +1192,99 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun openCamera() {
+        try {
+            startActivity(Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))
+            respond("Открываю камеру.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть камеру.")
+        }
+    }
+
+    private fun openGallery() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                type = "image/*"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            })
+            respond("Открываю галерею.")
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_PICK).apply { type = "image/*" })
+                respond("Открываю выбор фотографий.")
+            } catch (_: Exception) { respond("Не удалось открыть галерею.") }
+        }
+    }
+
+    private fun openDownloads() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse("content://downloads/public_downloads"), "*/*")
+            })
+            respond("Открываю загрузки.")
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    type = "*/*"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                })
+                respond("Открываю выбор файлов.")
+            } catch (_: Exception) { respond("Не удалось открыть загрузки.") }
+        }
+    }
+
+    private fun openNotificationSettings() {
+        openSettings(
+            android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+            "Открываю настройки уведомлений JARVIS."
+        )
+    }
+
+    private fun openBatterySettings() {
+        openSettings(
+            android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS,
+            "Открываю настройки энергосбережения."
+        )
+    }
+
+    private fun openDisplaySettings() {
+        openSettings(
+            android.provider.Settings.ACTION_DISPLAY_SETTINGS,
+            "Открываю настройки экрана и яркости."
+        )
+    }
+
+    private fun openDateTimeSettings() {
+        openSettings(
+            android.provider.Settings.ACTION_DATE_SETTINGS,
+            "Открываю настройки даты и времени."
+        )
+    }
+
+    private fun openLanguageSettings() {
+        val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1)
+            android.provider.Settings.ACTION_LOCALE_SETTINGS
+        else
+            android.provider.Settings.ACTION_SETTINGS
+        openSettings(action, "Открываю настройки языка системы.")
+    }
+
+    private fun openDefaultAppsSettings() {
+        val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+            android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+        else
+            android.provider.Settings.ACTION_SETTINGS
+        openSettings(action, "Открываю приложения по умолчанию.")
+    }
+
+    private fun openDoNotDisturbSettings() {
+        openSettings(
+            android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS,
+            "Открываю настройки режима «Не беспокоить»."
+        )
+    }
+
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Также умею быстро открывать камеру, галерею и загрузки, настройки уведомлений, энергосбережения, экрана, даты и времени, языка, приложений по умолчанию и режима «Не беспокоить». Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

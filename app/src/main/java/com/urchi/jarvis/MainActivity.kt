@@ -389,7 +389,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val query = cmd.replace(Regex("^(найди в интернете|найди|поищи|загугли)\\s*"), "")
                     openWeb(query.ifBlank { raw })
                 }
-                cmd.startsWith("открой ") || cmd.startsWith("запусти ") || cmd.startsWith("включи ") -> {
+                (cmd.startsWith("открой ") || cmd.startsWith("запусти ") || cmd.startsWith("включи ")) && !cmd.contains("музык") -> {
                     val target = cmd.substringAfter(" ").trim()
                     val pageMarker = Regex("\\s+(?:на странице|страницу|канал|видео|ролик)\\s+").find(target)
                     val appTarget = if (pageMarker != null) target.substring(0, pageMarker.range.first).trim() else target

@@ -13,7 +13,9 @@ An original native Kotlin Android assistant prototype. Its command handling and 
 - Supports short multi-step command phrases joined with "потом".
 - Opens Android Wi-Fi, Bluetooth, VPN, location, accessibility, storage, sound, notification, display, and app-permission settings.
 - Opens installed VPN clients in a priority order and can inspect Android's active network transport for a VPN tunnel. VPN activation still requires the user's action in the VPN app/system UI.
-- Controls the flashlight after the user grants camera permission; adjusts media volume; reports battery level and network transport.
+- Controls the flashlight after the user grants camera permission; adjusts media volume and sends play/pause/track commands to the active media session; reports battery level, device model, Android version, available app-data storage, and network transport.
+- Copies or shares user-supplied text through Android's clipboard and share sheet; opens the dialer, prepares an SMS draft, and searches destinations in map apps. Calls and messages are never sent automatically.
+- Can prefill a system alarm at a specified HH:MM time.
 - Hands timers, alarms, calendar event creation, file selection, and web searches to Android's system apps.
 
 ## Safety and privacy model

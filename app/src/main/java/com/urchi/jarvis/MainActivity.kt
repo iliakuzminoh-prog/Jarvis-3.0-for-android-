@@ -350,8 +350,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
                 cmd.contains("следующий трек") || cmd.contains("следующая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT)
                 cmd.contains("предыдущий трек") || cmd.contains("предыдущая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+                cmd.contains("спасибо") || cmd.contains("благодар") -> respond("Пожалуйста. Чем ещё помочь?")
+                isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
                 cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
-                cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+                cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") || cmd.contains("включи музыку") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
                 cmd.contains("звук") || cmd.contains("настройки звука") -> openSettings(android.provider.Settings.ACTION_SOUND_SETTINGS, "Открываю настройки звука.")
@@ -419,8 +421,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val candidate = findApp(cmd)
                     if (candidate != null) { launchApp(candidate.packageName); respond("Похоже, ты имел в виду ${candidate.label}. Открываю.") }
                     else {
-                        respond("Не распознал локальную команду. Ищу формулировку в Google.")
-                        openWeb(raw)
+                        respond("Не распознал команду. Могу искать в интернете, если ты явно скажешь «найди» или «поищи».")
                     }
                 }
             }
@@ -834,6 +835,25 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (_: Exception) {
             openWeb("карта маршрут $place")
         }
+    }
+
+    private fun isSimpleMath(cmd: String): Boolean {
+        val value = cmd.replace("сколько будет", "").replace("посчитай", "").replace("вычисли", "").replace("реши", "").replace("=", "").replace(",", ".").trim()
+        return Regex("""^[-+]?\d+(?:\.\d+)?(?:\s*[+\-*/xх]\s*[-+]?\d+(?:\.\d+)?)+$""").matches(value)
+    }
+
+    private fun evaluateSimpleMath(cmd: String): String {
+        val value = cmd.replace("сколько будет", "").replace("посчитай", "").replace("вычисли", "").replace("реши", "").replace("=", "").replace(",", ".").replace("x", "*", true).replace("х", "*").trim()
+        val tokens = Regex("""[-+*/]|\d+(?:\.\d+)?""").findAll(value).map { it.value }.toList()
+        if (tokens.isEmpty()) return "не удалось посчитать"
+        var result = tokens[0].toDouble()
+        var j = 1
+        while (j + 1 < tokens.size) {
+            val number = tokens[j + 1].toDouble()
+            result = when (tokens[j]) { "+" -> result + number; "-" -> result - number; "*" -> result * number; "/" -> if (number != 0.0) result / number else return "деление на ноль невозможно"; else -> return "не удалось посчитать" }
+            j += 2
+        }
+        return if (result % 1.0 == 0.0) result.toLong().toString() else String.format(Locale.US, "%.6f", result).trimEnd('0').trimEnd('.')
     }
 
     private fun openWeb(query: String) {

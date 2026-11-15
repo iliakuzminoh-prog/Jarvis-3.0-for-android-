@@ -18,7 +18,6 @@ import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.View
-import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -37,6 +36,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val installedApps = mutableListOf<AppEntry>()
     private var vpnCandidates: List<AppEntry> = emptyList()
     private var vpnIndex = -1
+    private val commandStack = mutableSetOf<String>()
     private val prefs by lazy { getSharedPreferences("jarvis_local", Context.MODE_PRIVATE) }
 
     data class AppEntry(val label: String, val packageName: String, val icon: android.graphics.drawable.Drawable)
@@ -223,6 +223,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val cmd = raw.trim().lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
+        if (commandStack.size >= 8 || !commandStack.add(cmd)) {
+            respond("Обнаружен цикл или слишком глубокая цепочка команд. Остановил выполнение.")
+            return
+        }
         try {
             val learned = prefs.getString("alias_" + cmd, null)
             if (learned != null && learned != cmd) {
@@ -232,7 +236,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             if (cmd.contains(" потом ")) {
                 val parts = cmd.split(" потом ").map { it.trim() }.filter { it.isNotBlank() }
-                if (parts.size > 5) { respond("Одна цепочка может содержать не больше пяти шагов."); return }
                 if (parts.size > 5) { respond("Одна цепочка может содержать не больше пяти шагов."); return }
                 respond("Выполняю последовательность из ${parts.size} действий.")
                 parts.forEach { runCommand(it) }
@@ -293,7 +296,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     } else respond("Не понял задачу. Могу открыть приложение, системные настройки или выполнить поиск. Скажи «помощь» для списка команд.")
                 }
             }
-        } catch (e: Exception) { respond("Не удалось выполнить действие: ${e.localizedMessage ?: "ошибка Android"}.") }
+        } catch (e: Exception) {
+            respond("Не удалось выполнить действие: ${e.localizedMessage ?: "ошибка Android"}.")
+        } finally {
+            commandStack.remove(cmd)
+        }
     }
 
 

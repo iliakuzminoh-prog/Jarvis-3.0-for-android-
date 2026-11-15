@@ -62,6 +62,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         val languageStatus = tts.setLanguage(Locale("ru", "RU"))
+        tts.setSpeechRate(1.07f)
+        tts.setPitch(1.02f)
         ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&
             languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
     }
@@ -292,7 +294,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("спец возможности") || cmd.contains("специальные возможности") -> openSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS, "Открываю специальные возможности Android.")
                 cmd.contains("память телефона") || cmd.contains("хранилище") -> openSettings(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS, "Открываю настройки хранилища.")
                 cmd.contains("не беспокоить") -> openSettings(android.provider.Settings.ACTION_ZEN_MODE_PRIORITY_SETTINGS, "Открываю настройки режима Не беспокоить.")
-                cmd.contains("проверь vpn") || cmd.contains("статус vpn") || cmd.contains("работает vpn") -> checkVpn()
+                cmd.contains("проверь vpn") || cmd.contains("статус vpn") || cmd.contains("работает vpn") || cmd.contains("подключен vpn") || cmd.contains("подключён vpn") -> checkVpn()
                 cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
@@ -302,14 +304,24 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
-                cmd.contains("найди") || cmd.contains("поищи") || cmd.contains("загугли") -> {
-                    val query = cmd.replace(Regex("^(найди|поищи|загугли)\\s*"), "")
+                cmd.startsWith("открой сайт ") || cmd.startsWith("открой страницу ") || cmd.startsWith("перейди на сайт ") || cmd.startsWith("зайди на сайт ") -> {
+                    val target = raw.substringAfter("сайт", raw.substringAfter("страницу", "")).trim()
+                    openWebsiteOrSearch(target)
+                }
+                cmd.contains("найди") || cmd.contains("поищи") || cmd.contains("загугли") || cmd.contains("найди в интернете") -> {
+                    val query = cmd.replace(Regex("^(найди в интернете|найди|поищи|загугли)\\s*"), "")
                     openWeb(query.ifBlank { raw })
                 }
                 cmd.startsWith("открой ") || cmd.startsWith("запусти ") || cmd.startsWith("включи ") -> {
                     val target = cmd.substringAfter(" ").trim()
-                    val app = findApp(target)
-                    if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
+                    val pageMarker = Regex("\\s+(?:на странице|страницу|канал|видео|ролик)\\s+").find(target)
+                    val appTarget = if (pageMarker != null) target.substring(0, pageMarker.range.first).trim() else target
+                    val pageQuery = if (pageMarker != null) target.substring(pageMarker.range.last + 1).trim() else ""
+                    val app = findApp(appTarget)
+                    if (app != null && pageQuery.isNotBlank() && isYouTubeApp(app)) {
+                        openYoutubeSearch(pageQuery)
+                    }
+                    else if (app != null) { launchApp(app.packageName); respond("Запускаю ${app.label}.") }
                     else if (target.contains("браузер") || target.contains("интернет")) openWeb("")
                     else if (target.contains("wi-fi") || target.contains("wifi") || target.contains("вайфай")) openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi. Android сам управляет переключателем.")
                     else if (target.contains("bluetooth") || target.contains("блютуз")) openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth. Android сам управляет переключателем.")
@@ -318,7 +330,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else if (target.contains("музык")) openCategoryApp(listOf("музык", "music", "player"))
                     else if (target.contains("галере") || target.contains("фото")) openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
                     else if (target.contains("карт") || target.contains("навиг")) openCategoryApp(listOf("карты", "maps", "навига"))
-                    else { respond("Не нашёл приложение «$target». Посмотри список приложений ниже или уточни название.") }
+                    else if (pageQuery.isNotBlank()) openWeb("$appTarget $pageQuery")
+                    else {
+                        val close = findApp(appTarget)
+                        if (close != null) { launchApp(close.packageName); respond("Нашёл похожее приложение: ${close.label}. Открываю.") }
+                        else { respond("Не нашёл приложение «$appTarget». Проверяю, не является ли это названием сайта."); openWebsiteOrSearch(appTarget) }
+                    }
                 }
                 cmd.contains("музык") || cmd.contains("music") -> openCategoryApp(listOf("музык", "music", "player"))
                 cmd.contains("галере") || cmd.contains("фото") || cmd.contains("photos") -> openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
@@ -327,10 +344,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 else -> {
                     val candidate = findApp(cmd)
                     if (candidate != null) { launchApp(candidate.packageName); respond("Похоже, ты имел в виду ${candidate.label}. Открываю.") }
-                    else if (listOf("что ", "как ", "почему ", "когда ", "где ", "зачем ").any { cmd.startsWith(it) }) {
-                        respond("Не нашёл локальную команду. Ищу ответ в интернете.")
+                    else {
+                        respond("Не распознал локальную команду. Ищу формулировку в Google.")
                         openWeb(raw)
-                    } else respond("Не понял задачу. Могу открыть приложение, системные настройки или выполнить поиск. Скажи «помощь» для списка команд.")
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -601,9 +618,35 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun normalizeAppQuery(value: String): String {
-        return value.lowercase(Locale.getDefault())
+        var cleaned = value.lowercase(Locale.ROOT)
             .replace(Regex("^(приложение|программу|программа|app)\\s+"), "")
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
+        val aliases = mapOf(
+            "ютуб" to "youtube", "ютуп" to "youtube", "ютюб" to "youtube", "ютубе" to "youtube",
+            "телега" to "telegram", "телеграм" to "telegram", "телеграмм" to "telegram",
+            "ватсап" to "whatsapp", "вотсап" to "whatsapp", "вацап" to "whatsapp",
+            "вконтакте" to "vk", "вк" to "vk", "тикток" to "tiktok",
+            "инста" to "instagram", "инстаграм" to "instagram",
+            "хром" to "chrome", "браузер хром" to "chrome"
+        )
+        cleaned = aliases[cleaned] ?: cleaned
+        return cleaned
+    }
+
+    private fun editDistance(a: String, b: String): Int {
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var previous = IntArray(b.length + 1) { it }
+        for (i in a.indices) {
+            val current = IntArray(b.length + 1)
+            current[0] = i + 1
+            for (j in b.indices) {
+                val cost = if (a[i] == b[j]) 0 else 1
+                current[j + 1] = minOf(current[j] + 1, previous[j + 1] + 1, previous[j] + cost)
+            }
+            previous = current
+        }
+        return previous[b.length]
     }
 
     private fun findApp(query: String): AppEntry? {
@@ -612,13 +655,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val ranked = installedApps.map { app ->
             val label = normalizeAppQuery(app.label)
             val pkg = normalizeAppQuery(app.packageName.substringAfterLast('.'))
-            val score = when {
-                label == q || pkg == q -> 100
-                label.startsWith(q) || pkg.startsWith(q) -> 80
-                label.contains(q) || pkg.contains(q) -> 65
-                q.contains(label) && label.length >= 3 -> 55
-                else -> 0
-            }
+            val candidates = listOf(label, pkg).filter { it.isNotBlank() }
+            val score = candidates.maxOfOrNull { candidate ->
+                when {
+                    candidate == q -> 120
+                    candidate.startsWith(q) || q.startsWith(candidate) && candidate.length >= 3 -> 100
+                    candidate.contains(q) || q.contains(candidate) && candidate.length >= 4 -> 82
+                    else -> {
+                        val distance = editDistance(q, candidate)
+                        val allowed = when { q.length >= 9 -> 2; q.length >= 5 -> 1; else -> 0 }
+                        if (distance <= allowed) 70 - distance * 10 else 0
+                    }
+                }
+            } ?: 0
             app to score
         }.filter { it.second > 0 }.sortedByDescending { it.second }
         if (ranked.isEmpty()) return null
@@ -698,9 +747,55 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openWeb(query: String) {
-        val uri = Uri.parse("https://www.google.com/search?q=" + Uri.encode(query))
-        startActivity(Intent(Intent.ACTION_VIEW, uri))
-        respond(if (query.isBlank()) "Открываю браузер." else "Ищу в интернете: $query")
+        val url = if (query.isBlank()) "https://www.google.com/" else "https://www.google.com/search?q=" + Uri.encode(query)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        try {
+            startActivity(intent)
+            respond(if (query.isBlank()) "Открываю Google." else "Ищу в Google: $query")
+        } catch (_: ActivityNotFoundException) {
+            respond("На устройстве не найден браузер для открытия Google.")
+        }
+    }
+
+    private fun openWebsiteOrSearch(rawTarget: String) {
+        val target = rawTarget.trim().trimEnd('.', ',', '!', '?')
+        if (target.isBlank()) { openWeb(""); return }
+        val hasDomain = Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(target)
+        if (!hasDomain) { openWeb(target); return }
+        val url = if (target.startsWith("http://", true) || target.startsWith("https://", true)) target else "https://$target"
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            respond("Открываю сайт $target.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть сайт. Ищу его в Google.")
+            openWeb(target)
+        }
+    }
+
+    private fun openYoutubeSearch(query: String) {
+        val safeQuery = query.trim()
+        if (safeQuery.isBlank()) {
+            try {
+                startActivity(packageManager.getLaunchIntentForPackage("com.google.android.youtube") ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")))
+                respond("Открываю YouTube.")
+            } catch (_: Exception) { openWeb("YouTube") }
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(safeQuery)))
+        intent.setPackage("com.google.android.youtube")
+        try {
+            startActivity(intent)
+            respond("Открываю поиск YouTube: $safeQuery.")
+        } catch (_: Exception) {
+            intent.setPackage(null)
+            try { startActivity(intent); respond("Открываю результаты YouTube для запроса: $safeQuery.") }
+            catch (_: Exception) { openWeb("YouTube $safeQuery") }
+        }
+    }
+
+    private fun isYouTubeApp(app: AppEntry): Boolean {
+        val value = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
+        return value.contains("youtube") || value.contains("ютуб") || app.packageName == "com.google.android.youtube"
     }
 
     private fun startVoice() {

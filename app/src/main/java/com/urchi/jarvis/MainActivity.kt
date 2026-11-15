@@ -367,22 +367,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
+                cmd.contains("адгуард") || cmd.contains("adguard") -> openAdGuardVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd.contains("wi-fi") || cmd.contains("wifi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
                 cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
-                cmd.contains("вк видео") || cmd.contains("vk видео") || cmd.contains("видео вк") -> {
-                    val query = cmd.replace(Regex("^.*?(вк видео|vk видео|видео вк)\\s*"), "").trim()
+                (cmd.contains("вк видео") || cmd.contains("vk видео") || cmd.contains("видео вк")) -> {
+                    val query = extractMediaQuery(cmd, listOf("вк видео", "vk видео", "видео вк"))
                     openVkVideoSearch(query)
+                }
+                (cmd.contains("ютуб") || cmd.contains("youtube")) && (cmd.contains("канал") || cmd.contains("видео") || cmd.contains("ролик")) -> {
+                    val query = extractMediaQuery(cmd, listOf("ютуб", "youtube", "канал", "видео", "ролик"))
+                    openYoutubeSearch(query)
                 }
                 cmd.startsWith("найди канал ") || cmd.startsWith("открой канал ") || cmd.startsWith("найди видео ") || cmd.startsWith("открой видео ") -> {
                     val query = if (cmd.contains("канал")) cmd.substringAfter("канал").trim() else cmd.substringAfter("видео").trim()
                     openYoutubeSearch(query)
                 }
                 cmd.startsWith("открой сайт ") || cmd.startsWith("открой страницу ") || cmd.startsWith("перейди на сайт ") || cmd.startsWith("зайди на сайт ") -> {
-                    val target = cmd.substringAfter("сайт", cmd.substringAfter("страницу", "")).trim()
+                    val target = when {
+                        cmd.contains("сайт") -> cmd.substringAfter("сайт").trim()
+                        cmd.contains("страницу") -> cmd.substringAfter("страницу").trim()
+                        else -> ""
+                    }
                     openWebsiteOrSearch(target)
                 }
                 cmd.contains("найди") || cmd.contains("поищи") || cmd.contains("загугли") || cmd.contains("найди в интернете") -> {
@@ -675,6 +684,29 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         nextVpn()
     }
 
+    private fun openAdGuardVpn() {
+        val installed = packageManager.getLaunchIntentForPackage("com.adguard.vpn") != null
+        if (!installed) {
+            val candidate = installedApps.firstOrNull {
+                val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+                value.contains("adguard") && value.contains("vpn")
+            }
+            if (candidate != null) {
+                launchApp(candidate.packageName)
+                respond("Открыл AdGuard VPN. Если Android попросит разрешение на VPN-подключение, подтверди его в системном окне.")
+            } else {
+                respond("AdGuard VPN не найден среди установленных приложений. Я не буду подменять его другим VPN.")
+            }
+            return
+        }
+        try {
+            launchApp("com.adguard.vpn")
+            respond("Открыл AdGuard VPN. Если Android попросит разрешение на VPN-подключение, подтверди его в системном окне, а затем подключись в самом AdGuard VPN.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть AdGuard VPN. Я не буду подменять его другим VPN.")
+        }
+    }
+
     private fun nextVpn() {
         if (vpnCandidates.isEmpty()) vpnCandidates = findVpnCandidates()
         if (vpnCandidates.isEmpty()) {
@@ -873,7 +905,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun openWebsiteOrSearch(rawTarget: String) {
         val target = rawTarget.trim().trimEnd('.', ',', '!', '?')
-        if (target.isBlank()) { openWeb(""); return }
+        if (target.isBlank()) { respond("Укажи название или адрес сайта."); return }
         val siteAliases = mapOf(
             "ютуб" to "https://www.youtube.com/",
             "youtube" to "https://www.youtube.com/",
@@ -892,15 +924,29 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
         val aliasUrl = siteAliases[target.lowercase(Locale.ROOT)]
         val hasDomain = Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(target)
-        if (aliasUrl == null && !hasDomain) { openWeb(target); return }
+        if (aliasUrl == null && !hasDomain) {
+            val directUrl = "https://" + target.removePrefix("https://").removePrefix("http://")
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(directUrl)))
+                respond("Пробую открыть сайт напрямую: $target.")
+            } catch (_: Exception) {
+                respond("Не смог определить адрес сайта «$target». Если хочешь поиск, скажи «найди $target».")
+            }
+            return
+        }
         val url = aliasUrl ?: if (target.startsWith("http://", true) || target.startsWith("https://", true)) target else "https://$target"
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             respond("Открываю сайт: $target.")
         } catch (_: Exception) {
-            respond("Не удалось открыть сайт. Ищу его в Google.")
-            openWeb(target)
+            respond("Не удалось открыть сайт напрямую. Если хочешь поиск, скажи «найди $target».")
         }
+    }
+
+    private fun extractMediaQuery(cmd: String, markers: List<String>): String {
+        var value = cmd
+        markers.forEach { marker -> value = value.replace(marker, " ") }
+        return value.replace(Regex("\\s+"), " ").trim()
     }
 
     private fun openVkVideoSearch(query: String) {

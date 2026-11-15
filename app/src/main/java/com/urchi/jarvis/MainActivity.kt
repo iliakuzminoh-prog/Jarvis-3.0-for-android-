@@ -1,7 +1,7 @@
 package com.urchi.jarvis
 
 import android.app.Activity
-import android.app.AlarmManager
+import android.provider.AlarmClock
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.BatteryManager
@@ -326,13 +326,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         if (seconds !in 1..86400) { respond("Таймер должен быть от одной секунды до 24 часов."); return }
         try {
-            startActivity(Intent(AlarmManager.ACTION_SET_TIMER).putExtra(AlarmManager.EXTRA_LENGTH, seconds).putExtra(AlarmManager.EXTRA_SKIP_UI, false))
+            startActivity(Intent(AlarmClock.ACTION_SET_TIMER).putExtra(AlarmClock.EXTRA_LENGTH, seconds).putExtra(AlarmClock.EXTRA_SKIP_UI, false))
             respond("Передал таймер системным часам. Проверь и запусти его.")
         } catch (_: Exception) { respond("На телефоне не найдено приложение часов с поддержкой таймеров.") }
     }
 
     private fun openAlarm() {
-        try { startActivity(Intent(AlarmManager.ACTION_SET_ALARM)); respond("Открываю создание будильника в системных часах.") }
+        try { startActivity(Intent(AlarmClock.ACTION_SET_ALARM)); respond("Открываю создание будильника в системных часах.") }
         catch (_: Exception) { respond("Не удалось открыть приложение часов.") }
     }
 
@@ -367,6 +367,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun toggleTorch(turnOff: Boolean) {
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 77)
+            respond("Android запросил разрешение камеры, необходимое для фонарика. После выдачи повтори команду.")
+            return
+        }
         try {
             val camera = getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
@@ -455,6 +460,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         try { startActivityForResult(intent, 41) }
         catch (_: ActivityNotFoundException) { respond("На телефоне нет доступного сервиса распознавания речи.") }
+    }
+
+    @Deprecated("Deprecated by Android; retained for broad device compatibility")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
+        else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
     }
 
     @Deprecated("Deprecated by Android; retained for broad device compatibility")

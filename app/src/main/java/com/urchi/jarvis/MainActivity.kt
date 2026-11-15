@@ -250,6 +250,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("яркость") -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Открываю настройки экрана.")
+                cmd.contains("местоположен") || cmd.contains("геолокац") -> openSettings(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS, "Открываю настройки местоположения.")
+                cmd.contains("спец возможности") || cmd.contains("специальные возможности") -> openSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS, "Открываю специальные возможности Android.")
+                cmd.contains("память телефона") || cmd.contains("хранилище") -> openSettings(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS, "Открываю настройки хранилища.")
+                cmd.contains("не беспокоить") -> openSettings(android.provider.Settings.ACTION_ZEN_MODE_PRIORITY_SETTINGS, "Открываю настройки режима Не беспокоить.")
+                cmd.contains("проверь vpn") || cmd.contains("статус vpn") || cmd.contains("работает vpn") -> checkVpn()
                 cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
@@ -386,6 +391,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun checkVpn() {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork
+        val caps = network?.let { manager.getNetworkCapabilities(it) }
+        if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) {
+            respond("Android сообщает, что VPN-туннель активен. Доступность конкретных сайтов этим не гарантируется.")
+        } else {
+            respond("Android не показывает активный VPN-туннель. Пробую следующий установленный клиент, если он найден.")
+            nextVpn()
+        }
+    }
+
     private fun showNetwork() {
         val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = manager.activeNetwork
@@ -514,7 +531,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять заметки; запоминать пользовательские псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять заметки; запоминать пользовательские псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

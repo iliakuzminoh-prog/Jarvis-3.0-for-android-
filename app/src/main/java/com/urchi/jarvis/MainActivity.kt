@@ -259,7 +259,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.startsWith("запомни ") || cmd.startsWith("сохрани заметку ") -> saveNote(raw)
                 cmd.contains("мои заметки") || cmd.contains("покажи заметки") || cmd == "заметки" -> showNotes()
                 cmd.contains("таймер") -> setTimer(raw)
-                cmd.contains("будильник") -> openAlarm()
+                cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
                 cmd.contains("фонарик") -> toggleTorch(cmd.contains("выключ"))
                 cmd.contains("заряд") || cmd.contains("батаре") -> showBattery()
@@ -268,7 +268,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.startsWith("скопируй ") || cmd.startsWith("скопировать ") -> copyToClipboard(raw.substringAfter(" "))
                 cmd.startsWith("поделись ") || cmd.startsWith("поделиться ") -> shareText(raw.substringAfter(" "))
                 cmd.startsWith("позвони ") || cmd.startsWith("набери номер ") -> openDialer(raw.substringAfter(" "))
-                cmd.startsWith("напиши смс ") || cmd.startsWith("отправь смс ") -> composeSms(raw.substringAfter(" "))
+                cmd.startsWith("напиши смс ") || cmd.startsWith("отправь смс ") -> composeSms(raw.substringAfter("смс").trim())
                 cmd.startsWith("маршрут до ") || cmd.startsWith("построй маршрут до ") || cmd.startsWith("найди адрес ") -> openMap(raw.substringAfter("до ").takeIf { cmd.contains("до ") } ?: raw.substringAfter("адрес "))
                 cmd.contains("громче") || cmd.contains("увеличь громкость") -> changeVolume(true)
                 cmd.contains("тише") || cmd.contains("уменьши громкость") -> changeVolume(false)
@@ -410,9 +410,27 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (_: Exception) { respond("На телефоне не найдено приложение часов с поддержкой таймеров.") }
     }
 
-    private fun openAlarm() {
-        try { startActivity(Intent(AlarmClock.ACTION_SET_ALARM)); respond("Открываю создание будильника в системных часах.") }
-        catch (_: Exception) { respond("Не удалось открыть приложение часов.") }
+    private fun openAlarm(raw: String = "") {
+        try {
+            val match = Regex("(?:на\\s*)?(\\d{1,2})[:.](\\d{2})").find(raw)
+            val intent = Intent(AlarmClock.ACTION_SET_ALARM)
+            if (match != null) {
+                val hour = match.groupValues[1].toInt()
+                val minute = match.groupValues[2].toInt()
+                if (hour !in 0..23 || minute !in 0..59) {
+                    respond("Время будильника указано неверно. Используй формат 07:30.")
+                    return
+                }
+                intent.putExtra(AlarmClock.EXTRA_HOUR, hour)
+                    .putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                    .putExtra(AlarmClock.EXTRA_MESSAGE, "JARVIS")
+                startActivity(intent)
+                respond("Передал будильник на $hour:${minute.toString().padStart(2, '0')} системным часам. Проверь и сохрани.")
+            } else {
+                startActivity(intent)
+                respond("Открываю создание будильника. Назови время, например: будильник на 07:30.")
+            }
+        } catch (_: Exception) { respond("Не удалось открыть приложение часов.") }
     }
 
     private fun openCalendar() {
@@ -448,10 +466,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun showBattery() {
         val manager = getSystemService(BATTERY_SERVICE) as BatteryManager
-        val level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val rawLevel = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val level = if (rawLevel in 0..100) rawLevel.toString() else "неизвестно"
         val status = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val plugged = status?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
-        respond("Заряд батареи: $level процентов. " + if (plugged != 0) "Телефон подключён к питанию." else "Телефон работает от аккумулятора.")
+        respond("Заряд батареи: $level" + (if (level == "неизвестно") "" else " процентов") + ". " + if (plugged != 0) "Телефон подключён к питанию." else "Телефон работает от аккумулятора.")
     }
 
     private fun changeVolume(up: Boolean) {
@@ -622,7 +641,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun openDialer(value: String) {
         val number = value.trim()
         if (number.isBlank()) { respond("Укажи номер телефона."); return }
-        startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number))))
+        startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number.replace(" ", ""), null)))
         respond("Открыл номеронабиратель. Вызов не выполняется автоматически.")
     }
 
@@ -632,7 +651,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             respond("Формат: напиши смс +79990000000 текст сообщения.")
             return
         }
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(parts[0]))).apply {
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", parts[0], null)).apply {
             putExtra("sms_body", parts[1])
         }
         startActivity(intent)

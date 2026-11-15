@@ -27,9 +27,9 @@ jobs:
       - name: Install Android platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee build.log
+        run: set -o pipefail; gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee build.log
       - name: Record APK checksum
-        if: success()
+        if: success() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
       - name: Upload build output and log
         if: always()

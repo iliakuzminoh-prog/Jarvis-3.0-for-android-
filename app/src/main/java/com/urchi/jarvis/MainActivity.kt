@@ -21,6 +21,7 @@ import android.view.View
 import android.content.Context
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -243,6 +244,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             when {
                 cmd.startsWith("научи команду ") -> teachCommand(raw)
+                cmd.startsWith("удали команду ") -> deleteAlias(raw)
+                cmd.contains("мои команды") || cmd.contains("покажи команды") -> showAliases()
+                cmd.contains("очисти заметки") || cmd.contains("удали все заметки") -> confirmClearNotes()
                 cmd.startsWith("запомни ") || cmd.startsWith("сохрани заметку ") -> saveNote(raw)
                 cmd.contains("мои заметки") || cmd.contains("покажи заметки") || cmd == "заметки" -> showNotes()
                 cmd.contains("таймер") -> setTimer(raw)
@@ -322,6 +326,36 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         prefs.edit().putString("alias_" + phrase, action).apply()
         respond("Запомнил команду «$phrase». Доступны только встроенные действия Jarvis.")
+    }
+
+    private fun showAliases() {
+        val aliases = prefs.all.filterKeys { it.startsWith("alias_") }.toSortedMap()
+        if (aliases.isEmpty()) { respond("Сохранённых пользовательских команд пока нет."); return }
+        val lines = aliases.map { (key, value) -> "• ${key.removePrefix("alias_")} = $value" }
+        output.text = "МОИ КОМАНДЫ\\n" + lines.joinToString("\\n")
+        say("Сохранено команд: ${aliases.size}. Список показан на экране.")
+    }
+
+    private fun deleteAlias(raw: String) {
+        val phrase = raw.substringAfter("удали команду").trim().lowercase(Locale.getDefault())
+        if (phrase.isBlank()) { respond("Укажи фразу команды, которую нужно удалить."); return }
+        if (!prefs.contains("alias_" + phrase)) { respond("Такой сохранённой команды нет."); return }
+        prefs.edit().remove("alias_" + phrase).apply()
+        respond("Удалил сохранённую команду «$phrase».")
+    }
+
+    private fun confirmClearNotes() {
+        AlertDialog.Builder(this)
+            .setTitle("Удалить все заметки?")
+            .setMessage("Это удалит только локальные заметки Jarvis. Отменить действие нельзя.")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Удалить") { _, _ ->
+                val editor = prefs.edit()
+                prefs.all.keys.filter { it.startsWith("note_") }.forEach { editor.remove(it) }
+                editor.apply()
+                respond("Все локальные заметки удалены.")
+            }
+            .show()
     }
 
     private fun saveNote(raw: String) {
@@ -574,7 +608,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять заметки; запоминать пользовательские псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью; включать фонарик; проверять заряд и тип сети; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Сложное свободное рассуждение без локальной языковой модели пока недоступно."
 
     private fun respond(message: String) {
         output.text = message

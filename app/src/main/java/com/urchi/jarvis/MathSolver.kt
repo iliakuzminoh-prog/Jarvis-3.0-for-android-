@@ -88,6 +88,13 @@ object MathSolver {
             .replace("плюс", "+").replace("минус", "-").replace("умножить", "*")
             .replace("делить на", "/").replace("икс", "x").replace("х", "x").trim()
         if (q.isBlank() || (!q.any { it.isDigit() } && !q.contains('x'))) return null
+        val percentMatch = Regex("""(\\d+(?:[.,]\\d+)?)\\s*(?:%|процент(?:а|ов)?)\\s*(?:от|of)\\s*(\\d+(?:[.,]\\d+)?)""")
+            .find(q)
+        if (percentMatch != null) {
+            val percent = percentMatch.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+            val base = percentMatch.groupValues[2].replace(',', '.').toDoubleOrNull() ?: return null
+            return "Ответ: ${fmt(percent * base / 100.0)}."
+        }
         if (!q.any { it in "+-*/^=()" } && !q.contains('x')) return null
         return try {
             if (q.count { it == '=' } > 1) return null

@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         buildUi()
         loadApps()
         renderApps("")
+        showFirstRunSetupIfNeeded()
         say("Система запущена. Чем могу помочь?")
         handleOverlayIntent(intent)
     }
@@ -79,6 +80,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOverlayIntent(intent)
+    }
+
+    private fun showFirstRunSetupIfNeeded() {
+        if (prefs.getBoolean("first_run_setup_done", false)) return
+        AlertDialog.Builder(this)
+            .setTitle("Настройка JARVIS")
+            .setMessage(
+                "При первом запуске JARVIS может запросить только нужные системные разрешения. " +
+                "Плавающее окно и уведомления включаются отдельно. " +
+                "VPN-клиенты сторонних разработчиков нельзя включить скрыто: Android сам показывает системное подтверждение."
+            )
+            .setPositiveButton("Настроить") { _, _ ->
+                prefs.edit().putBoolean("first_run_setup_done", true).apply()
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 53)
+                } else {
+                    enableOverlay()
+                }
+            }
+            .setNegativeButton("Позже") { _, _ ->
+                prefs.edit().putBoolean("first_run_setup_done", true).apply()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun handleOverlayIntent(intent: Intent?) {
@@ -361,6 +387,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val coreAnswer = LanguageCore.answer(cmd)
         if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }
 
+        // Расширенное локальное мозговое ядро проверяем до школьного справочника и сети.
+        val brainAnswer = BrainKnowledge.answer(cmd)
+        if (brainAnswer != null) {
+            lastTopic = cmd
+            lastIntent = "local_brain"
+            respond(brainAnswer)
+            return
+        }
+
         // Знания проверяем до интернет-поиска.
         val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {
@@ -497,6 +532,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
                 (cmd.contains("ютуб") || cmd.contains("youtube")) && (cmd.contains("канал") || cmd.contains("видео") || cmd.contains("ролик")) -> {
                     val query = extractMediaQuery(cmd, listOf("ютуб", "youtube", "канал", "видео", "ролик"))
+                    openYoutubeSearch(query)
+                }
+                cmd.contains("включи видео") || cmd.contains("запусти видео") || cmd.contains("подбери видео") -> {
+                    val query = extractMediaQuery(cmd, listOf("включи видео", "запусти видео", "подбери видео"))
                     openYoutubeSearch(query)
                 }
                 cmd.startsWith("найди канал ") || cmd.startsWith("открой канал ") || cmd.startsWith("найди видео ") || cmd.startsWith("открой видео ") -> {
@@ -1396,14 +1435,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun openWeb(query: String) {
         rememberSearch(query, "web")
-        val url = if (query.isBlank()) "https://www.google.com/" else "https://www.google.com/search?q=" + Uri.encode(query)
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        try {
-            startActivity(intent)
-            respond(if (query.isBlank()) "Открываю Google." else "Ищу в Google: $query")
-        } catch (_: ActivityNotFoundException) {
-            respond("На устройстве не найден браузер для открытия Google.")
-        }
+        openBuiltInBrowser(query)
     }
 
     private fun openWebsiteOrSearch(rawTarget: String) {

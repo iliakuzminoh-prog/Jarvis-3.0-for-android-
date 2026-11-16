@@ -567,6 +567,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Расширенная локальная учебная база: оригинальные краткие справки
+        // по русскому, английскому, математике и естественным наукам.
+        val curriculumAnswer = CurriculumKnowledge.answer(cmd)
+        if (curriculumAnswer != null) {
+            lastTopic = cmd
+            lastIntent = "curriculum"
+            respond(curriculumAnswer)
+            return
+        }
+
         // Знания проверяем до интернет-поиска.
         val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {

@@ -37,6 +37,9 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon :app:assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
+      - name: Run unit tests
+        if: success()
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace --warning-mode all
       - name: Run Android lint
         if: success()
         run: gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all

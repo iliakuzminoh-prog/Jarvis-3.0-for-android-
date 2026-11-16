@@ -413,6 +413,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun runCommand(raw: String) {
+        // Bound user-controlled input before normalization, routing, or logging.
+        if (raw.length > MAX_COMMAND_LENGTH) {
+            respond("Команда слишком длинная. Ограничение — 2000 символов.")
+            return
+        }
         val original = raw.trim()
         val cmd = original.lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
@@ -1981,5 +1986,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
         const val EXTRA_OVERLAY_TOKEN = "com.urchi.jarvis.OVERLAY_TOKEN"
         private const val PREF_OVERLAY_INTENT_TOKEN = "overlay_intent_token"
+        private const val MAX_COMMAND_LENGTH = 2000
     }
 }

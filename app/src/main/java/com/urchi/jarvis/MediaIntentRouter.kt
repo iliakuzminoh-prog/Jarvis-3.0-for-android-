@@ -22,12 +22,19 @@ object MediaIntentRouter {
         val q = normalize(raw)
         if (q.isBlank()) return null
 
-        val asksVideo = listOf("видео", "ролик", "видеоролик").any { q.contains(it) }
-        val asksRecommendation = listOf("рекомендац", "любое видео", "любой ролик", "что-нибудь посмотреть",
-            "что нибудь посмотреть", "любое из").any { q.contains(it) }
+        val asksVideo = q.contains("видео") || q.contains("ролик") || q.contains("видеоролик")
+        val asksRecommendation = q.contains("рекомендац") || q.contains("рекомендац") ||
+            q.contains("любое видео") || q.contains("любой ролик") ||
+            q.contains("что-нибудь посмотреть") || q.contains("что нибудь посмотреть") ||
+            q.contains("любое из")
         val vk = q.contains("вк") || q.contains("вконтакте") || q.contains("vk")
         val youtube = q.contains("ютуб") || q.contains("youtube")
 
+        // Match the common spoken form directly, then use the general classifier.
+        if (asksVideo && q.contains("из рекомендац") && youtube)
+            return Request(Kind.YOUTUBE_RECOMMENDATIONS)
+        if (asksVideo && q.contains("из рекомендац") && vk)
+            return Request(Kind.VK_RECOMMENDATIONS)
         if (asksVideo && asksRecommendation && vk) return Request(Kind.VK_RECOMMENDATIONS)
         if (asksVideo && asksRecommendation && youtube) return Request(Kind.YOUTUBE_RECOMMENDATIONS)
 

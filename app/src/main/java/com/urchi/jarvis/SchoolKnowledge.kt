@@ -150,7 +150,19 @@ object SchoolKnowledge {
         "world war ii" to "World War II was a global conflict that lasted from 1939 to 1945.",
         "renaissance" to "The Renaissance was a period of major cultural, artistic, and scientific change in Europe, roughly from the 14th to the 16th century.",
         "inflation" to "Inflation is a sustained increase in the general level of prices, reducing the purchasing power of money.",
-        "demand" to "In economics, demand is the quantity of a good or service consumers are willing and able to buy at different prices."
+        "demand" to "In economics, demand is the quantity of a good or service consumers are willing and able to buy at different prices.",
+        "noun" to "A noun is a part of speech that names a person, place, thing, or idea.",
+        "verb" to "A verb expresses an action, event, or state of being.",
+        "adjective" to "An adjective describes or gives more information about a noun or pronoun.",
+        "pronoun" to "A pronoun is a word used instead of a noun or noun phrase, such as I, you, she, or they.",
+        "adverb" to "An adverb modifies a verb, adjective, or another adverb. It often tells how, when, where, or to what extent.",
+        "preposition" to "A preposition shows a relationship between a noun or pronoun and another word, often expressing place, time, or direction.",
+        "conjunction" to "A conjunction connects words, phrases, or clauses. Common examples include and, but, or, because, and although.",
+        "subject" to "The subject is the part of a clause that the sentence says something about; it often performs the action of the verb.",
+        "predicate" to "The predicate is the part of a sentence or clause that says something about the subject and includes the verb.",
+        "simple sentence" to "A simple sentence contains one independent clause with a subject and a predicate.",
+        "compound sentence" to "A compound sentence contains at least two independent clauses, often joined by a coordinating conjunction.",
+        "present simple" to "The present simple is used for habits, routines, general truths, and stable situations. Example: She reads every day."
     )
 
     fun answer(command: String): String? {

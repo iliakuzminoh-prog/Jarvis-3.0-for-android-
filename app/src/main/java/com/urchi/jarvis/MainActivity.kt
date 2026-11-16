@@ -402,6 +402,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Отдельный математический решатель: арифметика и линейные уравнения.
+        // Неподдерживаемую запись он не угадывает, а передаёт следующим слоям.
+        val mathAnswer = MathSolver.solve(original)
+        if (mathAnswer != null) {
+            lastTopic = original
+            lastIntent = "math"
+            respond(mathAnswer)
+            return
+        }
+
         // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.
         val coreAnswer = LanguageCore.answer(cmd)
         if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }

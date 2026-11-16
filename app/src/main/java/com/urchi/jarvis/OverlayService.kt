@@ -299,21 +299,35 @@ class OverlayService : Service() {
                 request.error = "Введи запрос"
             } else {
                 hidePanel()
-                val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    putExtra(MainActivity.EXTRA_OVERLAY_COMMAND, command)
+                val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                    .getString("overlay_intent_token", null)
+                if (token.isNullOrBlank()) {
+                    Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        putExtra(MainActivity.EXTRA_OVERLAY_COMMAND, command.take(1000))
+                        putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+                    }
+                    startActivity(intent)
                 }
-                startActivity(intent)
             }
         }
         buttons.addView(send, LinearLayout.LayoutParams(0, dp(46), 1f))
         val voice = actionButton("ГОЛОС", false) {
             hidePanel()
-            val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra(MainActivity.EXTRA_OVERLAY_VOICE, true)
+            val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getString("overlay_intent_token", null)
+            if (token.isNullOrBlank()) {
+                Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+            } else {
+                val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    putExtra(MainActivity.EXTRA_OVERLAY_VOICE, true)
+                    putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+                }
+                startActivity(intent)
             }
-            startActivity(intent)
         }
         buttons.addView(voice, LinearLayout.LayoutParams(dp(92), dp(46)).apply { leftMargin = dp(8) })
         card.addView(buttons)

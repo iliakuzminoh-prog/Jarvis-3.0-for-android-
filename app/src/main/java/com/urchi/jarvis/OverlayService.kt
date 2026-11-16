@@ -415,8 +415,7 @@ class OverlayService : Service() {
                 r * .075f, paint
             )
 
-            phase = (phase + 1.7f) % 360f
-            postInvalidateDelayed(32L)
+            // Keep the idle bubble static: continuous invalidation wastes GPU time and battery.
         }
     }
 

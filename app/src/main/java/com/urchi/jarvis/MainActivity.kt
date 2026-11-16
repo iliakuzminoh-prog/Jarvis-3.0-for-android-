@@ -52,6 +52,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var pendingTorchOff = false
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
+    private data class VoiceOption(val title: String, val voiceName: String?, val pitch: Float, val rate: Float)
+    private var voiceOptions: List<VoiceOption> = emptyList()
+    private var selectedVoiceIndex = 0
     private val accent = Color.rgb(83, 215, 194)
     private val panel = Color.rgb(18, 29, 40)
     private val installedApps = mutableListOf<AppEntry>()
@@ -161,12 +164,30 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         val languageStatus = tts.setLanguage(Locale("ru", "RU"))
-        val localRussianVoice = tts.voices
-            ?.filter { it.locale.language == "ru" && !it.isNetworkConnectionRequired }
-            ?.maxByOrNull { it.quality }
-        if (localRussianVoice != null) tts.voice = localRussianVoice
-        tts.setSpeechRate(1.07f)
-        tts.setPitch(1.02f)
+        val russianVoices = tts.voices
+            ?.filter { it.locale.language == "ru" }
+            ?.sortedByDescending { it.quality }
+            .orEmpty()
+        val savedVoiceName = prefs.getString("tts_voice_name", null)
+        val savedVoice = russianVoices.firstOrNull { it.name == savedVoiceName }
+        val baseVoice = savedVoice ?: russianVoices.firstOrNull { !it.isNetworkConnectionRequired }
+            ?: russianVoices.firstOrNull()
+        voiceOptions = if (russianVoices.size >= 5) {
+            russianVoices.take(5).mapIndexed { index, voice ->
+                VoiceOption("Голос ${index + 1} · ${voice.name}", voice.name, 1.0f, 1.0f)
+            }
+        } else {
+            val baseName = baseVoice?.name
+            listOf(
+                VoiceOption("Мягкий", baseName, 1.08f, 0.96f),
+                VoiceOption("Спокойный", baseName, 0.96f, 0.94f),
+                VoiceOption("Естественный", baseName, 1.00f, 1.00f),
+                VoiceOption("Энергичный", baseName, 1.12f, 1.07f),
+                VoiceOption("Низкий", baseName, 0.86f, 0.96f)
+            )
+        }
+        selectedVoiceIndex = prefs.getInt("tts_voice_index", 0).coerceIn(0, (voiceOptions.size - 1).coerceAtLeast(0))
+        applySelectedVoice()
         ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&
             languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
     }
@@ -257,6 +278,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(row, matchWrap())
         addSpace(8)
         root.addView(button("ВЫПОЛНИТЬ КОМАНДУ", true) { runCommand(input.text.toString()) }, matchWrap())
+        addSpace(8)
+        root.addView(button("ВЫБРАТЬ ГОЛОС • 5 ВАРИАНТОВ", false) { showVoicePicker() }, matchWrap())
         addSpace(18)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
@@ -1853,13 +1876,40 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val status = tts.setLanguage(locale)
         if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
             tts.setLanguage(Locale("ru", "RU"))
-        } else {
-            val voice = tts.voices
-                ?.filter { it.locale.language == locale.language && !it.isNetworkConnectionRequired }
-                ?.maxByOrNull { it.quality }
-            if (voice != null) tts.voice = voice
         }
+        applySelectedVoice()
         tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+    }
+
+    private fun applySelectedVoice() {
+        if (!::tts.isInitialized || voiceOptions.isEmpty()) return
+        val option = voiceOptions[selectedVoiceIndex.coerceIn(0, voiceOptions.lastIndex)]
+        val selected = option.voiceName?.let { name -> tts.voices?.firstOrNull { it.name == name } }
+        if (selected != null) tts.voice = selected
+        tts.setPitch(option.pitch)
+        tts.setSpeechRate(option.rate)
+    }
+
+    private fun showVoicePicker() {
+        if (voiceOptions.isEmpty()) {
+            respond("Движок синтеза речи пока не предоставил список русских голосов. Проверь настройки преобразования текста в речь Android.")
+            return
+        }
+        val labels = voiceOptions.mapIndexed { index, option ->
+            (if (index == selectedVoiceIndex) "✓ " else "") + option.title
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Голос JARVIS")
+            .setSingleChoiceItems(labels, selectedVoiceIndex) { dialog, which ->
+                selectedVoiceIndex = which
+                prefs.edit().putInt("tts_voice_index", which)
+                    .putString("tts_voice_name", voiceOptions[which].voiceName).apply()
+                applySelectedVoice()
+                dialog.dismiss()
+                respond("Выбран голос: ${voiceOptions[which].title}.")
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
     }
 
     private class InternetOrbView(context: Context) : View(context) {

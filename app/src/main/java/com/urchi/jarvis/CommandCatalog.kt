@@ -101,7 +101,8 @@ object CommandCatalog {
         "покажи помощь" to "помощь",
         "открой чат джпт" to "открой chatgpt",
         "открой клод" to "открой claude",
-        "открой ии" to "открой ии"
+        "открой ии" to "открой ии",
+        "включи интернет" to "открой интернет"
     )
 
     fun resolve(command: String): String? = aliases[command.trim().lowercase()]

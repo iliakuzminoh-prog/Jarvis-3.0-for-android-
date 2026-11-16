@@ -351,6 +351,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("следующий впн") || cmd.contains("следующий vpn") || cmd.contains("другой впн") || cmd.contains("другой vpn") -> nextVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd == "адгуард" || cmd == "adguard" || cmd == "открой адгуард" || cmd == "запусти адгуард" -> openAdGuardVpn()
+                cmd == "внутренний браузер" || cmd == "открой свой браузер" || cmd == "открой браузер jarvis" || cmd == "браузер jarvis" -> openBuiltInBrowser("")
                 cmd == "открой ии" || cmd == "запусти ии" || cmd == "включи ии" || cmd == "открой ai" || cmd == "запусти ai" -> openAiRandom()
                 cmd == "открой чат джпт" || cmd == "открой чатжпт" || cmd == "открой chatgpt" || cmd == "запусти чат джпт" || cmd == "запусти chatgpt" || cmd == "открой джпт" -> openChatGpt()
                 cmd == "открой клод" || cmd == "открой claude" || cmd == "запусти клод" || cmd == "запусти claude" -> openClaude()
@@ -405,6 +406,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     openRequestedMusicApp("local")
                 cmd == "включи музыку" -> openMusicSmart()
                 cmd.contains("музыку без интернета") || cmd.contains("локальную музыку") || cmd.contains("музыку на телефоне") -> openLocalMusicPlayer()
+                cmd.contains("открой чат телеграм ") || cmd.contains("открой чат в телеграм ") || cmd.contains("открой telegram чат ") -> {
+                    val target = raw.substringAfter("чат", "").trim().removePrefix("в ").removePrefix("телеграм ").removePrefix("telegram ").trim()
+                    openTelegramChat(target)
+                }
+                cmd.contains("открой чат max ") || cmd.contains("открой чат макс ") || cmd.contains("открой в max ") || cmd.contains("открой в макс ") -> {
+                    val target = raw.substringAfter("чат", "").trim().removePrefix("в ").removePrefix("max ").removePrefix("макс ").trim()
+                    openMaxChatSearch(target)
+                }
+                cmd.contains("внутренний браузер") || cmd.contains("браузер jarvis") -> openBuiltInBrowser("")
                 cmd.contains("проводник") || cmd.contains("файлы") || cmd.contains("найди файл") -> openFiles()
                 cmd.contains("разрешения jarvis") || cmd.contains("разрешения приложения") -> openAppSettings()
                 cmd.contains("звук") || cmd.contains("настройки звука") -> openSettings(android.provider.Settings.ACTION_SOUND_SETTINGS, "Открываю настройки звука.")
@@ -1176,6 +1186,51 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             j += 2
         }
         return if (result % 1.0 == 0.0) result.toLong().toString() else String.format(Locale.US, "%.6f", result).trimEnd('0').trimEnd('.')
+    }
+
+    private fun openBuiltInBrowser(query: String) {
+        try {
+            startActivity(Intent(this, BrowserActivity::class.java).apply {
+                putExtra(BrowserActivity.EXTRA_QUERY, query)
+            })
+            respond(if (query.isBlank()) "Открываю встроенный браузер JARVIS." else "Ищу во встроенном браузере: $query")
+        } catch (_: Exception) {
+            respond("Не удалось открыть встроенный браузер JARVIS.")
+        }
+    }
+
+    private fun openTelegramChat(target: String) {
+        val clean = target.trim().removePrefix("@")
+        if (clean.isBlank()) {
+            respond("Скажи имя пользователя Telegram после команды, например «открой чат телеграм @имя».")
+            return
+        }
+        val uri = Uri.parse("tg://resolve?domain=" + Uri.encode(clean))
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            respond("Открываю чат Telegram: @" + clean + ".")
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/" + Uri.encode(clean))))
+                respond("Открываю Telegram через ссылку на @" + clean + ".")
+            } catch (_: Exception) {
+                respond("Не удалось открыть чат Telegram.")
+            }
+        }
+    }
+
+    private fun openMaxChatSearch(target: String) {
+        val app = installedApps.firstOrNull {
+            val v = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
+            v.contains("max") || v.contains("макс")
+        }
+        if (app == null) {
+            respond("MAX не найден среди установленных приложений.")
+            return
+        }
+        launchApp(app.packageName)
+        if (target.isBlank()) respond("Открыл MAX. Для конкретного чата приложение не предоставляет мне проверенный системный deep-link.")
+        else respond("Открыл MAX. Поиск чата «" + target + "» нужно завершить внутри MAX: у меня нет проверенного официального deep-link для произвольного чата.")
     }
 
     private fun openWeb(query: String) {

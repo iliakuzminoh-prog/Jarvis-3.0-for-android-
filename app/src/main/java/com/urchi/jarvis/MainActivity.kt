@@ -329,6 +329,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
         if (handleConversation(cmd)) return
+        val schoolAnswer = SchoolKnowledge.answer(cmd)
+        if (schoolAnswer != null) { respond(schoolAnswer); return }
         if (commandStack.size >= 8 || !commandStack.add(cmd)) {
             respond("Обнаружен цикл или слишком глубокая цепочка команд. Остановил выполнение.")
             return
@@ -338,6 +340,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (learned != null && learned != cmd) {
                 respond("Выполняю сохранённую команду.")
                 runCommand(learned)
+                return
+            }
+            val catalogCommand = CommandCatalog.resolve(cmd)
+            if (catalogCommand != null && catalogCommand != cmd) {
+                runCommand(catalogCommand)
                 return
             }
             if (cmd.contains(" потом ")) {

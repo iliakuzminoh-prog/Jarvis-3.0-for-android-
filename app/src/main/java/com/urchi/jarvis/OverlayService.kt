@@ -250,7 +250,15 @@ class OverlayService : Service() {
             canvas.drawArc(cx-r*1.08f, cy-r*1.08f, cx+r*1.08f, cy+r*1.08f, phase, 210f, false, paint)
             paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
-            canvas.drawCircle(cx-r*.34f, cy-r*.38f, r*.11f, paint)
+            canvas.drawOval(cx-r*.38f, cy-r*.30f, cx-r*.16f, cy-r*.02f, paint)
+            canvas.drawOval(cx+r*.16f, cy-r*.30f, cx+r*.38f, cy-r*.02f, paint)
+            paint.color = Color.rgb(8,18,28)
+            canvas.drawCircle(cx-r*.27f, cy-r*.16f, r*.055f, paint)
+            canvas.drawCircle(cx+r*.27f, cy-r*.16f, r*.055f, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = r*.055f
+            paint.color = Color.rgb(8,18,28)
+            canvas.drawArc(cx-r*.24f, cy+r*.02f, cx+r*.24f, cy+r*.30f, 15f, 150f, false, paint)
             phase = (phase + 2f) % 360f
             postInvalidateDelayed(32L)
         }

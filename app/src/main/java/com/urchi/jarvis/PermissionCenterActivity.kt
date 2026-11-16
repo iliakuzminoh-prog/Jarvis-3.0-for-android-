@@ -26,7 +26,7 @@ class PermissionCenterActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = "JARVIS — доступы"
-        val scroll = ScrollView(this).apply { setBackgroundColor(background) }
+        val scroll = ScrollView(this).apply { setBackgroundColor(this@PermissionCenterActivity.background) }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(22), dp(18), dp(24))
@@ -60,7 +60,7 @@ class PermissionCenterActivity : AppCompatActivity() {
             granted(Manifest.permission.RECORD_AUDIO)) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 102)
         }
-        addPermission("Камера", "Съёмка и анализ изображения по команде",
+        addPermission("Камера", "Фонарик и функции прямой съёмки; выбор фотографии для анализа работает через системный выбор файлов",
             if (granted(Manifest.permission.CAMERA)) "Разрешено" else "Не разрешено",
             granted(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA), 103)
@@ -184,7 +184,7 @@ class PermissionCenterActivity : AppCompatActivity() {
         val button = Button(this).apply {
             text = label
             isAllCaps = false
-            setTextColor(background)
+            setTextColor(this@PermissionCenterActivity.background)
             setBackgroundColor(accent)
             setOnClickListener { action() }
         }

@@ -170,7 +170,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun buildUi() {
-        val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(11,17,24)) }
+        val scroll = ScrollView(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(7, 15, 25), Color.rgb(12, 29, 42), Color.rgb(7, 15, 25))
+            )
+        }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(24), dp(18), dp(24))
@@ -201,7 +206,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             contentDescription = "Анимированный индикатор интернет-соединения"
             startAnimation()
         }
-        root.addView(orb, LinearLayout.LayoutParams(dp(96), dp(96)).apply {
+        root.addView(orb, LinearLayout.LayoutParams(dp(124), dp(124)).apply {
             gravity = Gravity.CENTER
             topMargin = dp(4)
             bottomMargin = dp(6)
@@ -313,7 +318,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             textSize = 11f
             isAllCaps = false
             setTextColor(if (primary) Color.rgb(5, 24, 27) else Color.WHITE)
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(if (primary) accent else panel))
+            background = roundedBackground(if (primary) accent else Color.rgb(30, 47, 61), 14)
             minHeight = dp(44)
             elevation = dp(2).toFloat()
             setOnClickListener { action() }
@@ -1752,9 +1757,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private class InternetOrbView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var angle = 0f
         private val animator = ObjectAnimator.ofFloat(this, "rotation", 0f, 360f).apply {
-            duration = 4200L
+            duration = 12000L
             repeatCount = ObjectAnimator.INFINITE
             interpolator = LinearInterpolator()
         }
@@ -1763,23 +1767,34 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             super.onDraw(canvas)
             val cx = width / 2f
             val cy = height / 2f
-            val r = minOf(width, height) * 0.39f
-
-            paint.shader = RadialGradient(
-                cx - r * 0.32f, cy - r * 0.36f, r * 1.35f,
-                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(22, 66, 83), Color.rgb(8, 18, 28)),
-                floatArrayOf(0f, .16f, .58f, 1f),
-                Shader.TileMode.CLAMP
-            )
+            val r = minOf(width, height) * .34f
+            paint.style = Paint.Style.FILL
+            paint.shader = RadialGradient(cx, cy, r * 1.55f,
+                intArrayOf(0x553DDCC8, 0x223DDCC8, Color.TRANSPARENT),
+                floatArrayOf(0f, .58f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawCircle(cx, cy, r * 1.55f, paint)
+            paint.shader = RadialGradient(cx - r * .32f, cy - r * .38f, r * 1.55f,
+                intArrayOf(Color.WHITE, Color.rgb(141, 245, 228), Color.rgb(35, 125, 145), Color.rgb(7, 24, 39)),
+                floatArrayOf(0f, .16f, .58f, 1f), Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, r, paint)
             paint.shader = null
             paint.style = Paint.Style.STROKE
+            paint.strokeWidth = r * .035f
+            paint.color = 0xAA9AF7EA.toInt()
+            canvas.drawOval(cx-r*.82f, cy-r*.29f, cx+r*.82f, cy+r*.29f, paint)
+            canvas.drawOval(cx-r*.46f, cy-r, cx+r*.46f, cy+r, paint)
+            paint.color = 0x6674DCCF
+            canvas.drawOval(cx-r*.94f, cy-r*.56f, cx+r*.94f, cy+r*.56f, paint)
             paint.strokeWidth = r * .055f
             paint.color = Color.rgb(83, 215, 194)
-            canvas.drawArc(cx - r * 1.12f, cy - r * 1.12f, cx + r * 1.12f, cy + r * 1.12f, angle, 210f, false, paint)
+            canvas.drawOval(cx-r*1.20f, cy-r*.42f, cx+r*1.20f, cy+r*.42f, paint)
+            paint.color = 0xAA4AB8C5.toInt()
+            canvas.drawOval(cx-r*1.10f, cy-r*.34f, cx+r*1.10f, cy+r*.34f, paint)
             paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
-            canvas.drawCircle(cx - r * .35f, cy - r * .38f, r * .10f, paint)
+            canvas.drawCircle(cx+r*1.18f, cy-r*.10f, r*.085f, paint)
+            paint.color = Color.rgb(139, 255, 240)
+            canvas.drawCircle(cx-r*.92f, cy+r*.20f, r*.065f, paint)
         }
 
         fun startAnimation() {

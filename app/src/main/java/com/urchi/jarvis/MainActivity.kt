@@ -1629,7 +1629,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             pendingTorchOff = false
             toggleTorch(turnOff)
         }
-        else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
+        else if (requestCode == 77) respond("Разрешение не выдано. Состояние фонарика не изменено.")
         else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
         else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
         else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")

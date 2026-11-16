@@ -4,6 +4,13 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
+import android.animation.ValueAnimator
+import android.graphics.Path
+import android.graphics.PathMeasure
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -37,6 +44,20 @@ class OverlayService : Service() {
     private var bubble: View? = null
     private var panel: View? = null
     private var lastTapAt = 0L
+    private var edgeView: MusicPerimeterView? = null
+    private var edgeAnimator: ValueAnimator? = null
+    private val musicHandler = Handler(Looper.getMainLooper())
+    private val musicPoll = object : Runnable {
+        override fun run() {
+            val active = try { (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive } catch (_: Exception) { false }
+            val thermal = if (active) readThermalLevel() else 0
+            val effectEnabled = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getBoolean("music_effect_enabled", true)
+            if (active && effectEnabled && thermal < 3) showMusicPerimeter(thermal) else hideMusicPerimeter()
+            // Check less often while idle; thermal status is irrelevant without music animation.
+            if (isRunning) musicHandler.postDelayed(this, if (active) 2500L else 5000L)
+        }
+    }
     private val panelColor = Color.rgb(16, 27, 38)
     private val accent = Color.rgb(83, 215, 194)
 
@@ -46,6 +67,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        musicHandler.post(musicPoll)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -54,8 +76,116 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_REFRESH_MUSIC_STYLE) {
+            hideMusicPerimeter()
+            return START_STICKY
+        }
         if (bubble == null) showBubble()
         return START_STICKY
+    }
+
+    /**
+     * A non-touchable full-screen overlay. It only appears while Android reports
+     * an active music stream, so the user's controls remain fully usable.
+     */
+    private fun readThermalLevel(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        return try {
+            val power = getSystemService(POWER_SERVICE) as PowerManager
+            power.currentThermalStatus
+        } catch (_: Exception) { 0 }
+    }
+
+    private fun showMusicPerimeter(thermal: Int) {
+        if (edgeView != null || !Settings.canDrawOverlays(this)) return
+        val musicPrefs = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+        val color = musicPrefs.getInt("music_effect_color", Color.rgb(67, 229, 208))
+        val speed = musicPrefs.getInt("music_effect_speed", 1).coerceIn(0, 2)
+        val view = MusicPerimeterView(this, color)
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        try {
+            windowManager.addView(view, params)
+            edgeView = view
+            view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            edgeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                // Slow the decorative animation when Android reports elevated heat.
+                val baseDuration = when (speed) { 0 -> 10000L; 2 -> 4000L; else -> 6000L }
+                duration = if (thermal >= 2) maxOf(baseDuration, 9000L) else baseDuration
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener {
+                    view.progress = it.animatedValue as Float
+                    // Cap actual redraws instead of invalidating at display refresh rate.
+                    view.postInvalidateDelayed(if (thermal >= 2) 70L else 40L)
+                }
+                start()
+            }
+        } catch (_: Exception) {
+            edgeView = null
+            edgeAnimator?.cancel()
+            edgeAnimator = null
+        }
+    }
+
+    private fun hideMusicPerimeter() {
+        edgeAnimator?.cancel()
+        edgeAnimator = null
+        edgeView?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+        edgeView = null
+    }
+
+    private class MusicPerimeterView(context: Context, effectColor: Int) : View(context) {
+        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            color = 0xAA43E5D0.toInt()
+            strokeWidth = 8f * resources.displayMetrics.density
+            setShadowLayer(18f * resources.displayMetrics.density, 0f, 0f, effectColor)
+        }
+        private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            color = effectColor
+            strokeWidth = 2.2f * resources.displayMetrics.density
+        }
+        var progress: Float = 0f
+        private val path = Path()
+        private val segment = Path()
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val inset = 9f * resources.displayMetrics.density
+            val radius = 25f * resources.displayMetrics.density
+            path.reset()
+            path.addRoundRect(
+                inset, inset, width - inset, height - inset,
+                radius, radius, Path.Direction.CW
+            )
+            val measure = PathMeasure(path, true)
+            val length = measure.length
+            if (length <= 0f) return
+            val start = progress * length
+            val segmentLength = length * .19f
+            segment.reset()
+            val end = start + segmentLength
+            if (end <= length) {
+                measure.getSegment(start, end, segment, true)
+            } else {
+                measure.getSegment(start, length, segment, true)
+                measure.getSegment(0f, end - length, segment, true)
+            }
+            canvas.drawPath(segment, glow)
+            canvas.drawPath(segment, core)
+        }
     }
 
     private fun showBubble() {
@@ -141,6 +271,10 @@ class OverlayService : Service() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(accent)
         }
+        val panelOrb = OrbBubbleView(this, animate = true)
+        header.addView(panelOrb, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+            rightMargin = dp(8)
+        })
         header.addView(title, LinearLayout.LayoutParams(0, dp(40), 1f))
         val close = TextView(this).apply {
             text = "×"
@@ -176,24 +310,65 @@ class OverlayService : Service() {
                 request.error = "Введи запрос"
             } else {
                 hidePanel()
-                val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    putExtra(MainActivity.EXTRA_OVERLAY_COMMAND, command)
+                val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                    .getString("overlay_intent_token", null)
+                if (token.isNullOrBlank()) {
+                    Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        putExtra(MainActivity.EXTRA_OVERLAY_COMMAND, command.take(1000))
+                        putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+                    }
+                    startActivity(intent)
                 }
-                startActivity(intent)
             }
         }
         buttons.addView(send, LinearLayout.LayoutParams(0, dp(46), 1f))
         val voice = actionButton("ГОЛОС", false) {
             hidePanel()
-            val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra(MainActivity.EXTRA_OVERLAY_VOICE, true)
+            val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getString("overlay_intent_token", null)
+            if (token.isNullOrBlank()) {
+                Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+            } else {
+                val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    putExtra(MainActivity.EXTRA_OVERLAY_VOICE, true)
+                    putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+                }
+                startActivity(intent)
             }
-            startActivity(intent)
         }
         buttons.addView(voice, LinearLayout.LayoutParams(dp(92), dp(46)).apply { leftMargin = dp(8) })
         card.addView(buttons)
+
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        fun openMain(extra: String) {
+            val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getString("overlay_intent_token", null)
+            if (token.isNullOrBlank()) {
+                Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            hidePanel()
+            val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(extra, true)
+                putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+            }
+            startActivity(intent)
+        }
+        val chats = actionButton("ЧАТЫ", false) { openMain(MainActivity.EXTRA_OVERLAY_CHATS) }
+        val media = actionButton("МЕДИА", false) { openMain(MainActivity.EXTRA_OVERLAY_MEDIA) }
+        val settings = actionButton("НАСТРОЙКИ", false) { openMain(MainActivity.EXTRA_OVERLAY_SETTINGS) }
+        menu.addView(chats, LinearLayout.LayoutParams(0, dp(42), 1f))
+        menu.addView(media, LinearLayout.LayoutParams(0, dp(42), 1f).apply { leftMargin = dp(6) })
+        menu.addView(settings, LinearLayout.LayoutParams(0, dp(42), 1f).apply { leftMargin = dp(6) })
+        card.addView(menu)
 
         val screenWidth = resources.displayMetrics.widthPixels
         val params = WindowManager.LayoutParams(
@@ -230,39 +405,91 @@ class OverlayService : Service() {
         }
     }
 
-    private class OrbBubbleView(context: Context) : View(context) {
+    private class OrbBubbleView(context: Context, private val animate: Boolean = false) : View(context) {
+        private var orbitAnimator: ValueAnimator? = null
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            if (!animate || orbitAnimator != null) return
+            orbitAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+                duration = 12000L
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener {
+                    phase = it.animatedValue as Float
+                    // Animate only the open request panel, at a restrained redraw rate.
+                    postInvalidateDelayed(66L)
+                }
+                start()
+            }
+        }
+
+        override fun onDetachedFromWindow() {
+            orbitAnimator?.cancel()
+            orbitAnimator = null
+            super.onDetachedFromWindow()
+        }
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private var phase = 0f
 
         override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
             val cx = width / 2f
             val cy = height / 2f
-            val r = min(width, height) * .43f
+            val r = min(width, height) * .34f
+
+            // Soft outer glow and glass-like central core.
+            paint.style = Paint.Style.FILL
             paint.shader = RadialGradient(
-                cx - r * .30f, cy - r * .36f, r * 1.3f,
-                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(23, 70, 86), Color.rgb(8, 18, 28)),
-                floatArrayOf(0f, .18f, .62f, 1f),
-                Shader.TileMode.CLAMP
+                cx, cy, r * 1.75f,
+                intArrayOf(0x553DDCC8, 0x223DDCC8, Color.TRANSPARENT),
+                floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(cx, cy, r * 1.75f, paint)
+            paint.shader = RadialGradient(
+                cx - r * .34f, cy - r * .38f, r * 1.55f,
+                intArrayOf(Color.WHITE, 0xFF8DF5E4.toInt(), 0xFF237D91.toInt(), 0xFF071827.toInt()),
+                floatArrayOf(0f, .16f, .58f, 1f), Shader.TileMode.CLAMP
             )
             canvas.drawCircle(cx, cy, r, paint)
             paint.shader = null
+
+            // Latitude/longitude lines give the sphere a technical globe appearance.
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = r * .07f
-            paint.color = Color.rgb(83, 215, 194)
-            canvas.drawArc(cx-r*1.08f, cy-r*1.08f, cx+r*1.08f, cy+r*1.08f, phase, 210f, false, paint)
+            paint.strokeWidth = maxOf(1.1f, r * .035f)
+            paint.color = 0xAA9AF7EA.toInt()
+            canvas.drawOval(cx - r * .82f, cy - r * .29f, cx + r * .82f, cy + r * .29f, paint)
+            canvas.drawOval(cx - r * .46f, cy - r, cx + r * .46f, cy + r, paint)
+            paint.color = 0x6674DCCF
+            canvas.drawOval(cx - r * .94f, cy - r * .56f, cx + r * .94f, cy + r * .56f, paint)
+
+            // Three orbital rings rotate at slightly different angles.
+            paint.strokeWidth = maxOf(1.4f, r * .055f)
+            paint.color = 0xFF70E9D8.toInt()
+            canvas.save()
+            canvas.rotate(phase, cx, cy)
+            canvas.drawOval(cx - r * 1.43f, cy - r * .48f, cx + r * 1.43f, cy + r * .48f, paint)
+            canvas.restore()
+            paint.color = 0xAA4AB8C5.toInt()
+            canvas.save()
+            canvas.rotate(-phase * .72f + 48f, cx, cy)
+            canvas.drawOval(cx - r * 1.30f, cy - r * .38f, cx + r * 1.30f, cy + r * .38f, paint)
+            canvas.restore()
+
             paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
-            canvas.drawOval(cx-r*.38f, cy-r*.30f, cx-r*.16f, cy-r*.02f, paint)
-            canvas.drawOval(cx+r*.16f, cy-r*.30f, cx+r*.38f, cy-r*.02f, paint)
-            paint.color = Color.rgb(8,18,28)
-            canvas.drawCircle(cx-r*.27f, cy-r*.16f, r*.055f, paint)
-            canvas.drawCircle(cx+r*.27f, cy-r*.16f, r*.055f, paint)
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = r*.055f
-            paint.color = Color.rgb(8,18,28)
-            canvas.drawArc(cx-r*.24f, cy+r*.02f, cx+r*.24f, cy+r*.30f, 15f, 150f, false, paint)
-            phase = (phase + 2f) % 360f
-            postInvalidateDelayed(32L)
+            canvas.drawCircle(
+                cx + kotlin.math.cos(Math.toRadians(phase.toDouble())).toFloat() * r * 1.43f,
+                cy + kotlin.math.sin(Math.toRadians(phase.toDouble())).toFloat() * r * .48f,
+                r * .10f, paint
+            )
+            paint.color = 0xFF8BFFF0.toInt()
+            canvas.drawCircle(
+                cx + kotlin.math.cos(Math.toRadians((-phase * .72 + 48).toDouble())).toFloat() * r * 1.30f,
+                cy + kotlin.math.sin(Math.toRadians((-phase * .72 + 48).toDouble())).toFloat() * r * .38f,
+                r * .075f, paint
+            )
+
+            // The idle bubble remains static; only the visible request-panel orb animates.
         }
     }
 
@@ -313,6 +540,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        musicHandler.removeCallbacks(musicPoll)
+        hideMusicPerimeter()
         hidePanel()
         bubble?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         bubble = null
@@ -331,6 +560,7 @@ class OverlayService : Service() {
         var isRunning: Boolean = false
             private set
 
+        const val ACTION_REFRESH_MUSIC_STYLE = "com.urchi.jarvis.REFRESH_MUSIC_STYLE"
         private const val CHANNEL_ID = "jarvis_overlay"
         private const val NOTIFICATION_ID = 7314
     }

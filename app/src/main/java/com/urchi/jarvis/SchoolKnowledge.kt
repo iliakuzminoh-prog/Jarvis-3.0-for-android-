@@ -98,22 +98,110 @@ object SchoolKnowledge {
         "просвещение" to "Просвещение — интеллектуальное движение XVII–XVIII веков, подчёркивавшее роль разума, образования и критического исследования общества.",
         "ссср" to "СССР — Союз Советских Социалистических Республик, существовавший с 1922 по 1991 год.",
         "русский язык" to "Русский язык — восточнославянский язык индоевропейской семьи.",
+        "части речи" to "В русском языке самостоятельные части речи называют предметы, признаки, действия и обстоятельства; служебные части речи связывают слова и выражают отношения между ними.",
+        "имя существительное" to "Имя существительное — самостоятельная часть речи, обозначающая предмет и отвечающая на вопросы «кто?» или «что?».",
+        "существительное" to "Имя существительное — самостоятельная часть речи, обозначающая предмет и отвечающая на вопросы «кто?» или «что?».",
+        "имя прилагательное" to "Имя прилагательное обозначает признак предмета и отвечает на вопросы «какой?», «чей?». Обычно согласуется с существительным в роде, числе и падеже.",
+        "прилагательное" to "Имя прилагательное обозначает признак предмета и отвечает на вопросы «какой?», «чей?».",
+        "глагол" to "Глагол — часть речи, обозначающая действие или состояние и отвечающая на вопросы «что делать?» и «что сделать?».",
+        "местоимение" to "Местоимение указывает на предметы, признаки или количества, не называя их: я, ты, он, этот, каждый, столько.",
+        "наречие" to "Наречие — неизменяемая часть речи, обозначающая признак действия или другого признака; отвечает, например, на вопросы «как?», «где?», «когда?».",
+        "предлог" to "Предлог — служебная часть речи, выражающая отношения между словами: в, на, под, около, из-за.",
+        "союз" to "Союз — служебная часть речи, которая связывает однородные члены или части сложного предложения: и, но, потому что, если.",
+        "частица" to "Частица — служебная часть речи, которая вносит смысловые оттенки или образует формы слов: бы, ли, же, не, ни.",
+        "падежи русского языка" to "В русском языке шесть основных падежей: именительный, родительный, дательный, винительный, творительный и предложный.",
+        "именительный падеж" to "Именительный падеж отвечает на вопросы «кто?» и «что?»; обычно называет подлежащее.",
+        "родительный падеж" to "Родительный падеж отвечает на вопросы «кого?» и «чего?».",
+        "дательный падеж" to "Дательный падеж отвечает на вопросы «кому?» и «чему?».",
+        "винительный падеж" to "Винительный падеж отвечает на вопросы «кого?» и «что?».",
+        "творительный падеж" to "Творительный падеж отвечает на вопросы «кем?» и «чем?».",
+        "предложный падеж" to "Предложный падеж употребляется с предлогами и отвечает на вопросы «о ком?» и «о чём?».",
+        "склонение" to "Склонение — изменение имён по падежам и числам. У существительных выделяют три основных типа склонения.",
+        "спряжение" to "Спряжение — изменение глаголов по лицам и числам в настоящем и будущем времени; у большинства глаголов выделяют I и II спряжение.",
+        "подлежащее" to "Подлежащее — главный член предложения, который называет того, о ком или о чём говорится; обычно отвечает на вопросы «кто?» или «что?».",
+        "сказуемое" to "Сказуемое — главный член предложения, который сообщает, что говорится о подлежащем.",
+        "дополнение" to "Дополнение — второстепенный член предложения, обозначающий предмет и отвечающий на падежные вопросы косвенных падежей.",
+        "определение" to "Определение — второстепенный член предложения, обозначающий признак предмета и отвечающий на вопросы «какой?», «чей?».",
+        "обстоятельство" to "Обстоятельство — второстепенный член предложения, обозначающий место, время, причину, цель, образ действия и другие условия.",
+        "однородные члены предложения" to "Однородные члены относятся к одному слову, отвечают на один вопрос и выполняют одинаковую синтаксическую функцию.",
+        "сложное предложение" to "Сложное предложение содержит две или более грамматические основы. Части могут соединяться союзами или интонацией.",
+        "деепричастие" to "Деепричастие — неизменяемая форма глагола, обозначающая добавочное действие: читая, улыбнувшись.",
+        "причастие" to "Причастие — форма глагола, обозначающая признак предмета по действию: читающий, построенный.",
+        "не с глаголами" to "Частица «не» с глаголами обычно пишется раздельно: не знаю, не пришёл. Слитное написание возможно, если слово без «не» не употребляется или есть другие правила.",
+        "тся или ться" to "Чтобы выбрать -тся или -ться, задай вопрос к глаголу: «что делает?» — учится; «что делать?» — учиться.",
         "английский язык" to "Английский язык — западногерманский язык индоевропейской семьи, широко используемый как международный язык.",
-        "обществознание" to "Обществознание объединяет знания о человеке и обществе, экономике, политике, праве и социальных отношениях."
+        "обществознание" to "Обществознание объединяет знания о человеке и обществе, экономике, политике, праве и социальных отношениях.",
+        "photosynthesis" to "Photosynthesis is the process by which plants, algae, and some microorganisms use light energy to make organic substances from carbon dioxide and water. Oxygen is usually released.",
+        "mitosis" to "Mitosis is cell division that produces two daughter cells with the same chromosome set as the original cell.",
+        "meiosis" to "Meiosis is a sequence of two cell divisions that produces cells with half the original chromosome number.",
+        "dna" to "DNA stores hereditary information. Its four main bases are adenine, thymine, guanine, and cytosine.",
+        "rna" to "RNA helps use genetic information. Important types include messenger RNA, transfer RNA, and ribosomal RNA.",
+        "cell" to "A cell is the basic structural and functional unit of living organisms.",
+        "gravity" to "Gravity is the interaction between objects with mass. Near Earth's surface, the gravitational acceleration is approximately 9.81 m/s².",
+        "atom" to "An atom consists of a nucleus containing protons and usually neutrons, surrounded by electrons.",
+        "molecule" to "A molecule is an electrically neutral group of two or more atoms held together by chemical bonds.",
+        "algorithm" to "An algorithm is a finite, clearly defined sequence of steps for solving a problem or completing a task.",
+        "ecosystem" to "An ecosystem includes living organisms and the non-living environment interacting through energy flow and matter cycling.",
+        "climate" to "Climate is the long-term pattern of weather conditions in a region, usually described using observations over many years.",
+        "equator" to "The equator is an imaginary line around Earth, equally distant from the geographic poles, dividing the planet into Northern and Southern Hemispheres.",
+        "newtons second law" to "Newton's second law states that the net force on an object equals its mass multiplied by its acceleration: F = m·a.",
+        "ohms law" to "Ohm's law for an electrical component is V = I·R, where voltage equals current multiplied by resistance.",
+        "water" to "Water is a chemical compound with the formula H₂O. Each molecule contains two hydrogen atoms and one oxygen atom.",
+        "world war ii" to "World War II was a global conflict that lasted from 1939 to 1945.",
+        "renaissance" to "The Renaissance was a period of major cultural, artistic, and scientific change in Europe, roughly from the 14th to the 16th century.",
+        "inflation" to "Inflation is a sustained increase in the general level of prices, reducing the purchasing power of money.",
+        "demand" to "In economics, demand is the quantity of a good or service consumers are willing and able to buy at different prices.",
+        "noun" to "A noun is a part of speech that names a person, place, thing, or idea.",
+        "verb" to "A verb expresses an action, event, or state of being.",
+        "adjective" to "An adjective describes or gives more information about a noun or pronoun.",
+        "pronoun" to "A pronoun is a word used instead of a noun or noun phrase, such as I, you, she, or they.",
+        "adverb" to "An adverb modifies a verb, adjective, or another adverb. It often tells how, when, where, or to what extent.",
+        "preposition" to "A preposition shows a relationship between a noun or pronoun and another word, often expressing place, time, or direction.",
+        "conjunction" to "A conjunction connects words, phrases, or clauses. Common examples include and, but, or, because, and although.",
+        "subject" to "The subject is the part of a clause that the sentence says something about; it often performs the action of the verb.",
+        "predicate" to "The predicate is the part of a sentence or clause that says something about the subject and includes the verb.",
+        "simple sentence" to "A simple sentence contains one independent clause with a subject and a predicate.",
+        "compound sentence" to "A compound sentence contains at least two independent clauses, often joined by a coordinating conjunction.",
+        "present simple" to "The present simple is used for habits, routines, general truths, and stable situations. Example: She reads every day."
     )
 
     fun answer(command: String): String? {
         val q = normalize(command)
-        facts.entries.firstOrNull { q.contains(it.key) }?.let { return it.value }
-        val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ")
+        val exactMatch = facts.entries.filter { q.contains(it.key) }.maxByOrNull { it.key.length }
+        val inflectedMatch = facts.entries.filter { matchesPhraseByStem(q, it.key) }.maxByOrNull { it.key.length }
+        (exactMatch ?: inflectedMatch)?.let { return it.value }
+        val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ",
+            "what is ", "what are ", "define ", "explain ", "tell me about ")
         val topic = prefixes.firstNotNullOfOrNull { p -> if (q.startsWith(p)) q.removePrefix(p).trim() else null } ?: return null
         return facts.entries.firstOrNull { topic.contains(it.key) || it.key.contains(topic) }?.value
     }
 
     fun topicCount(): Int = facts.size
 
+    private fun matchesPhraseByStem(query: String, key: String): Boolean {
+        val queryWords = normalize(query).split(" ").filter { it.isNotBlank() }
+        val keyWords = normalize(key).split(" ").filter { it.isNotBlank() }
+        if (keyWords.size < 2) return false
+        return keyWords.all { keyWord ->
+            queryWords.any { queryWord -> stem(queryWord) == stem(keyWord) }
+        }
+    }
+
+    private fun stem(word: String): String {
+        if (word.any { it !in 'а'..'я' }) return word
+        val endings = listOf(
+            "иями", "ями", "ами", "ого", "ему", "ому", "ее", "ие", "ые", "ое",
+            "ей", "ий", "ый", "ой", "ем", "ом", "им", "ым", "ах", "ях",
+            "ам", "ям", "ов", "ев", "ою", "ею", "ую", "юю", "ью",
+            "ия", "ии", "ию", "и", "ы", "а", "я", "у", "ю", "е", "о", "ь"
+        )
+        val ending = endings.firstOrNull { word.length > it.length + 2 && word.endsWith(it) }
+        return if (ending == null) word else word.dropLast(ending.length)
+    }
+
     private fun normalize(value: String): String = value.lowercase()
         .replace('ё', 'е')
+        .replace("'", "")
         .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()

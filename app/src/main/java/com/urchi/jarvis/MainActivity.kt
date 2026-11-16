@@ -21,8 +21,6 @@ import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
-import android.animation.ObjectAnimator
-import android.view.animation.LinearInterpolator
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -40,14 +38,26 @@ import java.util.Locale
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import com.urchi.jarvis.v4.core.MemoryStore
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
     private lateinit var input: EditText
     private lateinit var output: TextView
+    private lateinit var localMemory: MemoryStore
+    private lateinit var chats: ChatStore
+    private lateinit var permissionCenter: JarvisPermissionCenter
+    private val secretStore = JarvisSecretStore()
+    private var activeChatId = 0L
+    private lateinit var languageButton: Button
+    private var speechLocale = "ru-RU"
+    private var pendingTorchOff = false
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
-    private val accent = Color.rgb(83, 215, 194)
+    private data class VoiceOption(val title: String, val voiceName: String?, val pitch: Float, val rate: Float)
+    private var voiceOptions: List<VoiceOption> = emptyList()
+    private var selectedVoiceIndex = 0
+    private var accent = Color.rgb(83, 215, 194)
     private val panel = Color.rgb(18, 29, 40)
     private val installedApps = mutableListOf<AppEntry>()
     private var vpnCandidates: List<AppEntry> = emptyList()
@@ -67,6 +77,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        speechLocale = prefs.getString("speech_locale", "ru-RU") ?: "ru-RU"
+        localMemory = MemoryStore(this)
+        chats = ChatStore(this)
+        permissionCenter = JarvisPermissionCenter(this)
+        activeChatId = chats.getOrCreate().id
+        accent = prefs.getInt("ui_accent", Color.rgb(83, 215, 194))
         tts = TextToSpeech(this, this)
         buildUi()
         loadApps()
@@ -87,18 +103,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         AlertDialog.Builder(this)
             .setTitle("Настройка JARVIS")
             .setMessage(
-                "При первом запуске JARVIS может запросить только нужные системные разрешения. " +
-                "Плавающее окно и уведомления включаются отдельно. " +
-                "VPN-клиенты сторонних разработчиков нельзя включить скрыто: Android сам показывает системное подтверждение."
+                "Разрешения запрашиваются только при первом использовании соответствующей функции. " +
+                "Микрофон нужен для голосового ввода, камера — для камеры и фонарика, " +
+                "а показ поверх окон и уведомления — только для плавающего режима. " +
+                "VPN-клиенты сторонних разработчиков Android разрешает запускать только через собственное системное подтверждение."
             )
-            .setPositiveButton("Настроить") { _, _ ->
+            .setPositiveButton("Продолжить") { _, _ ->
                 prefs.edit().putBoolean("first_run_setup_done", true).apply()
-                if (Build.VERSION.SDK_INT >= 33 &&
-                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 53)
-                } else {
-                    enableOverlay()
-                }
             }
             .setNegativeButton("Позже") { _, _ ->
                 prefs.edit().putBoolean("first_run_setup_done", true).apply()
@@ -109,12 +120,29 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun handleOverlayIntent(intent: Intent?) {
         if (intent == null) return
-        val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)
+        val suppliedToken = intent.getStringExtra(EXTRA_OVERLAY_TOKEN)
+        val expectedToken = prefs.getString(PREF_OVERLAY_INTENT_TOKEN, null)
+        val authorized = !expectedToken.isNullOrBlank() && suppliedToken == expectedToken
+        val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)?.take(1000)
         val voice = intent.getBooleanExtra(EXTRA_OVERLAY_VOICE, false)
-        if (!command.isNullOrBlank()) root.post { runCommand(command) }
-        else if (voice) root.post { startVoice() }
+        val openChats = intent.getBooleanExtra(EXTRA_OVERLAY_CHATS, false)
+        val openMedia = intent.getBooleanExtra(EXTRA_OVERLAY_MEDIA, false)
+        val openSettings = intent.getBooleanExtra(EXTRA_OVERLAY_SETTINGS, false)
         intent.removeExtra(EXTRA_OVERLAY_COMMAND)
         intent.removeExtra(EXTRA_OVERLAY_VOICE)
+        intent.removeExtra(EXTRA_OVERLAY_CHATS)
+        intent.removeExtra(EXTRA_OVERLAY_MEDIA)
+        intent.removeExtra(EXTRA_OVERLAY_SETTINGS)
+        intent.removeExtra(EXTRA_OVERLAY_TOKEN)
+        if (!authorized) return
+
+        // Rotate the one-time token to reject replayed or copied intents.
+        prefs.edit().putString(PREF_OVERLAY_INTENT_TOKEN, java.util.UUID.randomUUID().toString()).apply()
+        if (!command.isNullOrBlank()) root.post { runCommand(command) }
+        else if (voice) root.post { startVoice() }
+        else if (openChats) root.post { showChats() }
+        else if (openMedia) root.post { showMediaStudio() }
+        else if (openSettings) root.post { showJarvisSettings() }
     }
 
     private fun toggleOverlay() {
@@ -139,17 +167,23 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         try {
+            prefs.edit().putString(
+                PREF_OVERLAY_INTENT_TOKEN,
+                java.util.UUID.randomUUID().toString()
+            ).apply()
             val serviceIntent = Intent(this, OverlayService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
             else startService(serviceIntent)
             respond("Плавающая кнопка JARVIS включена. Дважды нажми на неё, чтобы открыть окно запроса.")
         } catch (_: Exception) {
+            prefs.edit().remove(PREF_OVERLAY_INTENT_TOKEN).apply()
             respond("Не удалось запустить плавающее окно. Проверь разрешения и уведомления JARVIS.")
         }
     }
 
     private fun disableOverlay() {
         stopService(Intent(this, OverlayService::class.java))
+        prefs.edit().remove(PREF_OVERLAY_INTENT_TOKEN).apply()
         respond("Плавающая кнопка JARVIS выключена.")
     }
 
@@ -159,18 +193,41 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         val languageStatus = tts.setLanguage(Locale("ru", "RU"))
-        val localRussianVoice = tts.voices
-            ?.filter { it.locale.language == "ru" && !it.isNetworkConnectionRequired }
-            ?.maxByOrNull { it.quality }
-        if (localRussianVoice != null) tts.voice = localRussianVoice
-        tts.setSpeechRate(1.07f)
-        tts.setPitch(1.02f)
+        val russianVoices = tts.voices
+            ?.filter { it.locale.language == "ru" }
+            ?.sortedByDescending { it.quality }
+            .orEmpty()
+        val savedVoiceName = prefs.getString("tts_voice_name", null)
+        val savedVoice = russianVoices.firstOrNull { it.name == savedVoiceName }
+        val baseVoice = savedVoice ?: russianVoices.firstOrNull { !it.isNetworkConnectionRequired }
+            ?: russianVoices.firstOrNull()
+        voiceOptions = if (russianVoices.size >= 5) {
+            russianVoices.take(5).mapIndexed { index, voice ->
+                VoiceOption("Голос ${index + 1} · ${voice.name}", voice.name, 1.0f, 1.0f)
+            }
+        } else {
+            val baseName = baseVoice?.name
+            listOf(
+                VoiceOption("Мягкий", baseName, 1.08f, 0.96f),
+                VoiceOption("Спокойный", baseName, 0.96f, 0.94f),
+                VoiceOption("Естественный", baseName, 1.00f, 1.00f),
+                VoiceOption("Энергичный", baseName, 1.12f, 1.07f),
+                VoiceOption("Низкий", baseName, 0.86f, 0.96f)
+            )
+        }
+        selectedVoiceIndex = prefs.getInt("tts_voice_index", 0).coerceIn(0, (voiceOptions.size - 1).coerceAtLeast(0))
+        applySelectedVoice()
         ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&
             languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
     }
 
     private fun buildUi() {
-        val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(11,17,24)) }
+        val scroll = ScrollView(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(7, 15, 25), Color.rgb(12, 29, 42), Color.rgb(7, 15, 25))
+            )
+        }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(24), dp(18), dp(24))
@@ -198,10 +255,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         addSpace(10)
 
         val orb = InternetOrbView(this).apply {
-            contentDescription = "Анимированный индикатор интернет-соединения"
-            startAnimation()
+            contentDescription = "Индикатор интернет-соединения"
         }
-        root.addView(orb, LinearLayout.LayoutParams(dp(96), dp(96)).apply {
+        root.addView(orb, LinearLayout.LayoutParams(dp(124), dp(124)).apply {
             gravity = Gravity.CENTER
             topMargin = dp(4)
             bottomMargin = dp(6)
@@ -239,11 +295,30 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             background = roundedBackground(panel, 12)
         }
         row.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
+        languageButton = button(if (speechLocale == "ru-RU") "RU" else "EN", false) {
+            toggleSpeechLanguage()
+        }
+        row.addView(languageButton, LinearLayout.LayoutParams(dp(54), dp(52)).apply {
+            setMargins(dp(5), 0, dp(5), 0)
+        })
         val mic = button("МИК", false) { startVoice() }
         row.addView(mic, LinearLayout.LayoutParams(dp(64), dp(52)))
         root.addView(row, matchWrap())
         addSpace(8)
         root.addView(button("ВЫПОЛНИТЬ КОМАНДУ", true) { runCommand(input.text.toString()) }, matchWrap())
+        addSpace(8)
+        root.addView(button("ВЫБРАТЬ ГОЛОС • 5 ВАРИАНТОВ", false) { showVoicePicker() }, matchWrap())
+        addSpace(8)
+        root.addView(button("НАСТРОЙКИ МУЗЫКАЛЬНОГО ЭФФЕКТА", false) { showMusicCustomization() }, matchWrap())
+        addSpace(8)
+        val menuRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        menuRow.addView(button("ЧАТЫ", false) { showChats() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(4) })
+        menuRow.addView(button("МЕДИА", false) { showMediaStudio() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4); rightMargin = dp(4) })
+        menuRow.addView(button("НАСТРОЙКИ", false) { showJarvisSettings() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4) })
+        root.addView(menuRow, matchWrap())
         addSpace(18)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
@@ -288,7 +363,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(appList, matchWrap())
         addSpace(20)
         val footer = TextView(this).apply {
-            text = "Работает локально • Без API-ключей • Действия требуют системных разрешений"
+            text = "Локальное управление • AI-медиа подключается отдельно • Действия требуют системных разрешений"
             textSize = 11f
             setTextColor(Color.GRAY)
             gravity = Gravity.CENTER
@@ -313,7 +388,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             textSize = 11f
             isAllCaps = false
             setTextColor(if (primary) Color.rgb(5, 24, 27) else Color.WHITE)
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(if (primary) accent else panel))
+            background = roundedBackground(if (primary) accent else Color.rgb(30, 47, 61), 14)
             minHeight = dp(44)
             elevation = dp(2).toFloat()
             setOnClickListener { action() }
@@ -366,12 +441,96 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun runCommand(raw: String) {
+        val rootCommand = commandStack.isEmpty()
+        if (rootCommand && raw.trim().isNotBlank() && ::chats.isInitialized) {
+            chats.add(activeChatId, "user", raw.trim())
+        }
+        // Bound user-controlled input before normalization, routing, or logging.
+        if (raw.length > MAX_COMMAND_LENGTH) {
+            respond("Команда слишком длинная. Ограничение — 2000 символов.")
+            return
+        }
         val original = raw.trim()
         val cmd = original.lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
 
-        if (handleConversation(cmd)) return
+        // Медиакоманды разбираются до разговорных и школьных ответов.
+        // Это предотвращает ответ справочником на просьбу открыть видео/песню.
+        when (val media = MediaIntentRouter.resolve(original)) {
+            null -> Unit
+            else -> {
+                when (media.kind) {
+                    MediaIntentRouter.Kind.YOUTUBE_RECOMMENDATIONS -> openYoutubeRecommendations()
+                    MediaIntentRouter.Kind.VK_RECOMMENDATIONS -> openVkVideoRecommendations()
+                    MediaIntentRouter.Kind.YOUTUBE_SEARCH -> openYoutubeSearch(media.query)
+                    MediaIntentRouter.Kind.VK_VIDEO_SEARCH -> openVkVideoSearch(media.query)
+                    MediaIntentRouter.Kind.VK_MUSIC_SEARCH -> {
+                        if (hasInternetConnection()) openVkMusicSearch(media.query)
+                        else respond("Для поиска песни нужен интернет. Ничего не запускал.")
+                    }
+                    MediaIntentRouter.Kind.MUSIC_NAME_REQUIRED ->
+                        respond("Название песни не указано. Напиши исполнителя или название — я открою поиск именно по нему. Старое воспроизведение запускать не буду.")
+                }
+                return
+            }
+        }
+
+        // Управление интерфейсом через Accessibility — только после явного включения
+        // пользователем системного сервиса. JARVIS не пытается включить его сам.
+        if (cmd.startsWith("нажми ") || cmd.startsWith("кликни ")) {
+            val target = original.substringAfter(" ").trim().take(200)
+            if (target.isBlank()) {
+                respond("Укажи текст кнопки, которую нужно нажать.")
+            } else {
+                val service = JarvisAccessibilityService.instance
+                if (service == null || !JarvisAccessibilityService.isServiceEnabled(this)) {
+                    respond("Управление кликами не разрешено. Включи службу JARVIS в специальных возможностях Android.")
+                } else {
+                    val ok = service.clickText(target)
+                    respond(if (ok) "Нажал «$target»." else "Не нашёл доступную кнопку «$target» в текущем окне.")
+                }
+            }
+            return
+        }
+
+        // Долговременная локальная память: явное сохранение, поиск и удаление записей.
+        when {
+            cmd.startsWith("запомни ") || cmd.startsWith("remember ") -> {
+                val fact = original.substringAfter(" ").trim()
+                if (fact.isBlank()) respond("Укажи, что именно сохранить в памяти.")
+                else if (fact.length > 1000) respond("Запись слишком длинная. Ограничение памяти JARVIS — 1000 символов на одну запись.")
+                else {
+                    localMemory.remember(fact)
+                    respond("Сохранил в памяти телефона: $fact")
+                }
+                return
+            }
+            cmd.startsWith("забудь ") || cmd.startsWith("forget ") -> {
+                val query = original.substringAfter(" ").trim()
+                val removed = localMemory.forget(query)
+                respond(if (removed > 0) "Удалил из памяти $removed записей."
+                    else "Подходящих записей в памяти не найдено.")
+                return
+            }
+            cmd.startsWith("что ты помнишь про ") || cmd.startsWith("what do you remember about ") -> {
+                val query = if (cmd.startsWith("what do you remember about "))
+                    cmd.removePrefix("what do you remember about ").trim()
+                else cmd.removePrefix("что ты помнишь про ").trim()
+                val items = localMemory.search(query, 8)
+                val result = if (items.isEmpty()) "В памяти нет записей по запросу «$query»."
+                    else "Нашёл в памяти:\n" + items.joinToString("\n") { "• " + it.text }
+                respond(result)
+                return
+            }
+            cmd in setOf("что ты помнишь", "покажи память", "what do you remember", "show memory") -> {
+                val items = localMemory.recent(12)
+                output.text = if (items.isEmpty()) "ЛОКАЛЬНАЯ ПАМЯТЬ\nПока нет сохранённых записей."
+                    else "ЛОКАЛЬНАЯ ПАМЯТЬ\n" + items.joinToString("\n") { "• " + it.text }
+                say(if (items.isEmpty()) "Память пока пуста." else "В памяти сохранено записей: ${items.size}. Список показан на экране.")
+                return
+            }
+        }
 
         // Языковой слой сначала переводит естественную фразу в точную системную
         // команду. Поэтому «выруби музыку», «поставь будильник на семь тридцать»
@@ -392,6 +551,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Проверка орфографии запускается только при явном вопросе о написании.
+        // Это должно предшествовать общим разговорным шаблонам.
+        val spellingAnswer = SpellCheckEngine.answer(original)
+        if (spellingAnswer != null) {
+            lastTopic = original
+            lastIntent = "spelling"
+            respond(spellingAnswer)
+            return
+        }
+
         // Языковой слой: разговорные формулировки, русский/английский и простая арифметика.
         // Он работает до сети, поэтому базовые вопросы не уходят в браузер.
         val languageAnswer = RussianLanguageEngine.answer(cmd)
@@ -399,6 +568,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             lastTopic = cmd
             lastIntent = "language"
             respond(languageAnswer)
+            return
+        }
+
+        // Отдельный математический решатель: арифметика и линейные уравнения.
+        // Неподдерживаемую запись он не угадывает, а передаёт следующим слоям.
+        val mathAnswer = MathSolver.solve(original)
+        if (mathAnswer != null) {
+            lastTopic = original
+            lastIntent = "math"
+            respond(mathAnswer)
             return
         }
 
@@ -415,6 +594,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Расширенная локальная учебная база: оригинальные краткие справки
+        // по русскому, английскому, математике и естественным наукам.
+        val curriculumAnswer = CurriculumKnowledge.answer(cmd)
+        if (curriculumAnswer != null) {
+            lastTopic = cmd
+            lastIntent = "curriculum"
+            respond(curriculumAnswer)
+            return
+        }
+
         // Знания проверяем до интернет-поиска.
         val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {
@@ -423,6 +612,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             respond(schoolAnswer)
             return
         }
+
+        // Общие реплики проверяем после математических и предметных знаний,
+        // чтобы «что такое фотосинтез?» не перехватывалось пустой заглушкой.
+        if (handleConversation(cmd)) return
 
         // Продолжение предыдущего вопроса.
         val contextual = resolveContextualQuestion(cmd)
@@ -476,6 +669,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
+                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
+                    cmd.contains("создай картинку") || cmd.contains("создай изображение") -> {
+                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+(картинку|изображение)\\s*"), "").trim()
+                    showImageGenerationDialog(prompt)
+                }
                 cmd.contains("анализ фото") || cmd.contains("проанализируй фото") || cmd.contains("разбери фото") -> selectPhotoForAnalysis()
                 cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
                 cmd.contains("открой галерею") || cmd == "галерея" || cmd.contains("открой фото") -> openGallery()
@@ -837,8 +1035,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun toggleTorch(turnOff: Boolean) {
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            pendingTorchOff = turnOff
             requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 77)
-            respond("Android запросил разрешение камеры для фонарика. Если разрешишь, фонарик включится.")
+            respond("Android запросил разрешение камеры для фонарика. После разрешения выполню именно запрошенное действие.")
             return
         }
         try {
@@ -1123,10 +1322,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (app != null) {
             try {
                 launchApp(app.packageName)
-                respond("Открываю VK Музыку и пытаюсь продолжить воспроизведение.")
-                window.decorView.postDelayed({
-                    sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
-                }, 700L)
+                respond("Открыл VK Музыку. Самостоятельно выбирать и запускать случайный старый трек не буду — назови песню.")
             } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
         } else {
             respond("Приложение VK Музыка не найдено.")
@@ -1161,19 +1357,27 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openMusicSmart() {
-        if (hasInternetConnection()) {
-            val app = findVkMusicApp()
-            if (app != null) {
-                try {
-                    launchApp(app.packageName)
-                    respond("Открываю VK Музыку.")
-                } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
+        respond("Какую именно песню включить? Назови исполнителя или название. Я не буду выдавать старое приостановленное воспроизведение за новый трек.")
+    }
+
+    private fun openYoutubeRecommendations() {
+        try {
+            val launch = packageManager.getLaunchIntentForPackage("com.google.android.youtube")
+            if (launch != null) {
+                startActivity(launch)
+                respond("Открыл главную страницу YouTube с рекомендациями. Android не предоставляет JARVIS доступ к твоей персональной ленте и не позволяет надёжно выбрать и запустить конкретную рекомендацию без отдельной интеграции.")
             } else {
-                openRequestedMusicApp("local")
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")))
+                respond("Открыл YouTube в браузере. Автоматически выбрать видео из персональных рекомендаций здесь нельзя.")
             }
-        } else {
-            openLocalMusicPlayer()
-        }
+        } catch (_: Exception) { respond("Не удалось открыть YouTube. Видео не запускалось.") }
+    }
+
+    private fun openVkVideoRecommendations() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://vk.com/video")))
+            respond("Открыл раздел VK Видео. Персональные рекомендации и автозапуск конкретного ролика недоступны без авторизованной интеграции VK.")
+        } catch (_: Exception) { respond("Не удалось открыть VK Видео. Ролик не запускался.") }
     }
 
     private fun openLocalMusicPlayer() {
@@ -1545,6 +1749,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return value.contains("youtube") || value.contains("ютуб") || app.packageName == "com.google.android.youtube"
     }
 
+    private fun toggleSpeechLanguage() {
+        speechLocale = if (speechLocale == "ru-RU") "en-US" else "ru-RU"
+        prefs.edit().putString("speech_locale", speechLocale).apply()
+        languageButton.text = if (speechLocale == "ru-RU") "RU" else "EN"
+        respond(if (speechLocale == "ru-RU") "Распознавание речи переключено на русский."
+            else "Speech recognition switched to English.")
+    }
+
     private fun startVoice() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 89)
@@ -1553,7 +1765,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechLocale)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Скажите команду")
         }
         try { startActivityForResult(intent, 41) }
@@ -1563,8 +1775,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     @Deprecated("Deprecated by Android; retained for broad device compatibility")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
-        else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
+        if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            val turnOff = pendingTorchOff
+            pendingTorchOff = false
+            toggleTorch(turnOff)
+        }
+        else if (requestCode == 77) respond("Разрешение не выдано. Состояние фонарика не изменено.")
         else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
         else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
         else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")
@@ -1730,54 +1946,354 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun helpText() = "Я умею: анализировать выбранные фотографии локальной моделью; показывать таблицу Менделеева и сведения об элементах; считать выражения со скобками, степенями и процентами и решать простые линейные уравнения; запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Также умею быстро открывать камеру, галерею и загрузки, настройки уведомлений, энергосбережения, экрана, даты и времени, языка, приложений по умолчанию и режима «Не беспокоить». Есть краткосрочный контекст диалога и разбор естественных команд. Полноценного свободного рассуждения уровня большой языковой модели пока нет: я не буду выдавать набор правил за настоящую нейросеть."
 
     private fun respond(message: String) {
+        if (::chats.isInitialized && message.isNotBlank()) chats.add(activeChatId, "assistant", message)
         output.text = message
         say(message)
     }
 
     private fun say(message: String) {
-        if (ttsReady) tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+        if (!ttsReady) return
+        val latin = message.count { it in 'a'..'z' || it in 'A'..'Z' }
+        val cyrillic = message.count { it in 'а'..'я' || it in 'А'..'Я' || it == 'ё' || it == 'Ё' }
+        val locale = if (latin > cyrillic) Locale.ENGLISH else Locale("ru", "RU")
+        val status = tts.setLanguage(locale)
+        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
+            tts.setLanguage(Locale("ru", "RU"))
+        }
+        applySelectedVoice()
+        tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+    }
+
+    private fun applySelectedVoice() {
+        if (!::tts.isInitialized || voiceOptions.isEmpty()) return
+        val option = voiceOptions[selectedVoiceIndex.coerceIn(0, voiceOptions.lastIndex)]
+        val selected = option.voiceName?.let { name -> tts.voices?.firstOrNull { it.name == name } }
+        if (selected != null) tts.voice = selected
+        tts.setPitch(option.pitch)
+        tts.setSpeechRate(option.rate)
+    }
+
+    private fun showMusicCustomization() {
+        val colors = listOf(
+            "Бирюзовый" to Color.rgb(67, 229, 208),
+            "Синий" to Color.rgb(75, 160, 255),
+            "Фиолетовый" to Color.rgb(174, 112, 255),
+            "Янтарный" to Color.rgb(255, 183, 77),
+            "Белый" to Color.WHITE
+        )
+        val speedLabels = arrayOf("Медленно", "Обычно", "Быстро")
+        val currentColor = prefs.getInt("music_effect_color", colors[0].second)
+        val currentColorIndex = colors.indexOfFirst { it.second == currentColor }.coerceAtLeast(0)
+        val currentSpeed = prefs.getInt("music_effect_speed", 1).coerceIn(0, 2)
+        val enabled = prefs.getBoolean("music_effect_enabled", true)
+
+        val options = arrayOf(
+            if (enabled) "✓ Музыкальная рамка включена" else "Музыкальная рамка выключена",
+            "Цвет: ${colors[currentColorIndex].first}",
+            "Скорость: ${speedLabels[currentSpeed]}"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Оформление музыкального режима")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        prefs.edit().putBoolean("music_effect_enabled", !enabled).apply()
+                        refreshMusicEffect()
+                        respond(if (enabled) "Музыкальная рамка выключена." else "Музыкальная рамка включена.")
+                    }
+                    1 -> AlertDialog.Builder(this)
+                        .setTitle("Цвет музыкальной рамки")
+                        .setSingleChoiceItems(colors.map { it.first }.toTypedArray(), currentColorIndex) { colorDialog, index ->
+                            prefs.edit().putInt("music_effect_color", colors[index].second).apply()
+                            refreshMusicEffect()
+                            colorDialog.dismiss()
+                            respond("Цвет музыкального эффекта изменён.")
+                        }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                    2 -> AlertDialog.Builder(this)
+                        .setTitle("Скорость анимации")
+                        .setSingleChoiceItems(speedLabels, currentSpeed) { speedDialog, index ->
+                            prefs.edit().putInt("music_effect_speed", index).apply()
+                            refreshMusicEffect()
+                            speedDialog.dismiss()
+                            respond("Скорость музыкальной анимации изменена.")
+                        }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
+    }
+
+    private fun refreshMusicEffect() {
+        if (OverlayService.isRunning) {
+            try { startService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_REFRESH_MUSIC_STYLE)) }
+            catch (_: Exception) { }
+        }
+    }
+
+    private fun showVoicePicker() {
+        if (voiceOptions.isEmpty()) {
+            respond("Движок синтеза речи пока не предоставил список русских голосов. Проверь настройки преобразования текста в речь Android.")
+            return
+        }
+        val labels = voiceOptions.mapIndexed { index, option ->
+            (if (index == selectedVoiceIndex) "✓ " else "") + option.title
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Голос JARVIS")
+            .setSingleChoiceItems(labels, selectedVoiceIndex) { dialog, which ->
+                selectedVoiceIndex = which
+                prefs.edit().putInt("tts_voice_index", which)
+                    .putString("tts_voice_name", voiceOptions[which].voiceName).apply()
+                applySelectedVoice()
+                dialog.dismiss()
+                respond("Выбран голос: ${voiceOptions[which].title}.")
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
     }
 
     private class InternetOrbView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var angle = 0f
-        private val animator = ObjectAnimator.ofFloat(this, "rotation", 0f, 360f).apply {
-            duration = 4200L
-            repeatCount = ObjectAnimator.INFINITE
-            interpolator = LinearInterpolator()
-        }
-
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val cx = width / 2f
             val cy = height / 2f
-            val r = minOf(width, height) * 0.39f
-
-            paint.shader = RadialGradient(
-                cx - r * 0.32f, cy - r * 0.36f, r * 1.35f,
-                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(22, 66, 83), Color.rgb(8, 18, 28)),
-                floatArrayOf(0f, .16f, .58f, 1f),
-                Shader.TileMode.CLAMP
-            )
+            val r = minOf(width, height) * .34f
+            paint.style = Paint.Style.FILL
+            paint.shader = RadialGradient(cx, cy, r * 1.55f,
+                intArrayOf(0x553DDCC8, 0x223DDCC8, Color.TRANSPARENT),
+                floatArrayOf(0f, .58f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawCircle(cx, cy, r * 1.55f, paint)
+            paint.shader = RadialGradient(cx - r * .32f, cy - r * .38f, r * 1.55f,
+                intArrayOf(Color.WHITE, Color.rgb(141, 245, 228), Color.rgb(35, 125, 145), Color.rgb(7, 24, 39)),
+                floatArrayOf(0f, .16f, .58f, 1f), Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, r, paint)
             paint.shader = null
             paint.style = Paint.Style.STROKE
+            paint.strokeWidth = r * .035f
+            paint.color = 0xAA9AF7EA.toInt()
+            canvas.drawOval(cx-r*.82f, cy-r*.29f, cx+r*.82f, cy+r*.29f, paint)
+            canvas.drawOval(cx-r*.46f, cy-r, cx+r*.46f, cy+r, paint)
+            paint.color = 0x6674DCCF
+            canvas.drawOval(cx-r*.94f, cy-r*.56f, cx+r*.94f, cy+r*.56f, paint)
             paint.strokeWidth = r * .055f
             paint.color = Color.rgb(83, 215, 194)
-            canvas.drawArc(cx - r * 1.12f, cy - r * 1.12f, cx + r * 1.12f, cy + r * 1.12f, angle, 210f, false, paint)
+            canvas.drawOval(cx-r*1.20f, cy-r*.42f, cx+r*1.20f, cy+r*.42f, paint)
+            paint.color = 0xAA4AB8C5.toInt()
+            canvas.drawOval(cx-r*1.10f, cy-r*.34f, cx+r*1.10f, cy+r*.34f, paint)
             paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
-            canvas.drawCircle(cx - r * .35f, cy - r * .38f, r * .10f, paint)
+            canvas.drawCircle(cx+r*1.18f, cy-r*.10f, r*.085f, paint)
+            paint.color = Color.rgb(139, 255, 240)
+            canvas.drawCircle(cx-r*.92f, cy+r*.20f, r*.065f, paint)
         }
 
-        fun startAnimation() {
-            if (!animator.isStarted) animator.start()
-        }
+    }
 
-        override fun onDetachedFromWindow() {
-            animator.cancel()
-            super.onDetachedFromWindow()
+    private fun showChats() {
+        val list = chats.list()
+        val labels = list.map { c -> "${c.title}  •  ${c.messages.size} сообщений" }.toTypedArray()
+        val builder = AlertDialog.Builder(this).setTitle("Чаты JARVIS")
+        builder.setItems(labels) { dialog, which ->
+            val chat = list[which]
+            activeChatId = chat.id
+            showChatActions(chat)
+            dialog.dismiss()
         }
+        builder.setPositiveButton("Новый чат") { _, _ ->
+            val chat = chats.create()
+            activeChatId = chat.id
+            output.text = "НОВЫЙ ЧАТ\nГотов к работе."
+        }
+        builder.setNegativeButton("Закрыть", null)
+        if (list.isEmpty()) builder.setMessage("История пока пуста. Первый запрос создаст историю автоматически.")
+        builder.show()
+    }
+
+    private fun showChatActions(chat: ChatStore.Chat) {
+        val actions = arrayOf("Открыть историю", "Переименовать", "Удалить")
+        AlertDialog.Builder(this).setTitle(chat.title).setItems(actions) { _, which ->
+            when (which) {
+                0 -> {
+                    val text = chat.messages.takeLast(40).joinToString("\n\n") {
+                        if (it.role == "user") "ВЫ: ${it.text}" else "JARVIS: ${it.text}"
+                    }
+                    output.text = if (text.isBlank()) "Чат пуст." else text
+                    say(if (chat.messages.isEmpty()) "Чат пуст." else "История открыта.")
+                }
+                1 -> {
+                    val edit = EditText(this).apply { setText(chat.title); setSelection(length()) }
+                    AlertDialog.Builder(this).setTitle("Название чата").setView(edit)
+                        .setPositiveButton("Сохранить") { _, _ ->
+                            chats.rename(chat.id, edit.text.toString())
+                            if (activeChatId == chat.id) output.text = "Чат переименован."
+                        }.setNegativeButton("Отмена", null).show()
+                }
+                2 -> {
+                    chats.delete(chat.id)
+                    val replacement = chats.getOrCreate()
+                    activeChatId = replacement.id
+                    output.text = "Чат удалён."
+                }
+            }
+        }.show()
+    }
+
+    private fun showMediaStudio() {
+        val items = arrayOf(
+            "Сгенерировать изображение",
+            "Посмотреть изображение / анализировать фото",
+            "Открыть галерею"
+        )
+        AlertDialog.Builder(this).setTitle("Медиа JARVIS").setItems(items) { _, which ->
+            when (which) {
+                0 -> showImageGenerationDialog()
+                1 -> selectPhotoForAnalysis()
+                2 -> openGallery()
+            }
+        }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun showImageGenerationDialog(initialPrompt: String = "") {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), 0)
+        }
+        val prompt = EditText(this).apply {
+            hint = "Например: футуристический город ночью, 3D, бирюзовый свет"
+            setText(initialPrompt)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+            minLines = 3
+            gravity = Gravity.TOP
+        }
+        box.addView(prompt, matchWrap())
+        val keyStatus = if (secretStore.get(this, "image_api_key").isNullOrBlank())
+            "Ключ генератора не настроен." else "Ключ генератора сохранён защищённо."
+        box.addView(TextView(this).apply {
+            text = keyStatus
+            setTextColor(Color.LTGRAY)
+            textSize = 11f
+            setPadding(0, dp(8), 0, 0)
+        }, matchWrap())
+        AlertDialog.Builder(this).setTitle("Генерация изображения").setView(box)
+            .setPositiveButton("Сгенерировать") { _, _ ->
+                val key = secretStore.get(this, "image_api_key")
+                if (key.isNullOrBlank()) {
+                    showImageKeyDialog()
+                } else {
+                    output.text = "ГЕНЕРАЦИЯ\nОтправляю запрос модели..."
+                    JarvisImageGenerator.generate(this, prompt.text.toString(), key) { result ->
+                        runOnUiThread {
+                            result.onSuccess { file -> showGeneratedImage(file) }
+                                .onFailure { e -> respond("Генерация изображения не удалась: ${e.localizedMessage ?: "ошибка провайдера"}") }
+                        }
+                    }
+                }
+            }
+            .setNeutralButton("Ключ API") { _, _ -> showImageKeyDialog() }
+            .setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showImageKeyDialog() {
+        val edit = EditText(this).apply {
+            hint = "sk_..."
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(secretStore.get(this@MainActivity, "image_api_key").orEmpty())
+        }
+        AlertDialog.Builder(this).setTitle("Ключ генератора изображений")
+            .setMessage("Ключ хранится в Android Keystore. JARVIS не отправляет его в обычные логи.")
+            .setView(edit)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val value = edit.text.toString().trim()
+                if (value.isBlank()) secretStore.clear(this, "image_api_key") else secretStore.put(this, "image_api_key", value)
+                respond(if (value.isBlank()) "Ключ удалён." else "Ключ сохранён в защищённом хранилище.")
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGeneratedImage(file: java.io.File) {
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+        if (bitmap == null) {
+            respond("Файл изображения получен, но Android не смог его декодировать.")
+            file.delete()
+            return
+        }
+        val image = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        AlertDialog.Builder(this).setTitle("JARVIS • изображение").setView(image)
+            .setPositiveButton("Готово") { _, _ ->
+                file.delete()
+                respond("Изображение показано. Временный файл удалён.")
+            }.show()
+    }
+
+    private fun showJarvisSettings() {
+        val themeNames = arrayOf("Бирюзовый", "Синий", "Фиолетовый", "Янтарный")
+        val themeColors = intArrayOf(
+            Color.rgb(83,215,194), Color.rgb(85,160,255),
+            Color.rgb(180,120,255), Color.rgb(255,184,77)
+        )
+        val items = arrayOf(
+            "Голос и скорость речи",
+            "Цвет интерфейса",
+            "Центр разрешений",
+            "Очистить историю чатов",
+            "Очистить неприкреплённую память",
+            "Сводка системы"
+        )
+        AlertDialog.Builder(this).setTitle("Настройки JARVIS").setItems(items) { _, which ->
+            when (which) {
+                0 -> showVoicePicker()
+                1 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
+                    .setSingleChoiceItems(themeNames, themeColors.indexOfFirst { it == accent }.coerceAtLeast(0)) { d, i ->
+                        prefs.edit().putInt("ui_accent", themeColors[i]).apply()
+                        d.dismiss()
+                        recreate()
+                    }.setNegativeButton("Отмена", null).show()
+                2 -> showPermissionCenter()
+                3 -> {
+                    AlertDialog.Builder(this).setTitle("Удалить все чаты?")
+                        .setMessage("Это удалит локальную историю диалогов.")
+                        .setPositiveButton("Удалить") { _, _ ->
+                            chats.list().forEach { chats.delete(it.id) }
+                            activeChatId = chats.getOrCreate().id
+                            respond("История чатов очищена.")
+                        }.setNegativeButton("Отмена", null).show()
+                }
+                4 -> {
+                    localMemory.clearUnpinned()
+                    respond("Неприкреплённые записи памяти удалены.")
+                }
+                5 -> {
+                    val msg = "Чатов: ${chats.list().size}\nСообщений: ${chats.messageCount()}\n" +
+                        "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база\n" +
+                        "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}\n" +
+                        "Управление кликами: ${if (JarvisAccessibilityService.isEnabled(this)) "разрешено" else "не разрешено"}"
+                    output.text = "СИСТЕМА\n${msg}"
+                }
+            }
+        }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun showPermissionCenter() {
+        val items = permissionCenter.items(this)
+        val labels = items.map { item ->
+            val status = if (item.granted) "✓" else "□"
+            "$status ${item.title}\n${item.description}"
+        }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("Центр разрешений")
+            .setItems(labels) { _, which -> items[which].action() }
+            .setMessage("JARVIS не включает специальные доступы скрытно. Android требует явного согласия пользователя.")
+            .setNegativeButton("Закрыть", null).show()
     }
 
     private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {
@@ -1797,5 +2313,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
         const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
+        const val EXTRA_OVERLAY_CHATS = "com.urchi.jarvis.OVERLAY_CHATS"
+        const val EXTRA_OVERLAY_MEDIA = "com.urchi.jarvis.OVERLAY_MEDIA"
+        const val EXTRA_OVERLAY_SETTINGS = "com.urchi.jarvis.OVERLAY_SETTINGS"
+        const val EXTRA_OVERLAY_TOKEN = "com.urchi.jarvis.OVERLAY_TOKEN"
+        private const val PREF_OVERLAY_INTENT_TOKEN = "overlay_intent_token"
+        private const val MAX_COMMAND_LENGTH = 2000
     }
 }

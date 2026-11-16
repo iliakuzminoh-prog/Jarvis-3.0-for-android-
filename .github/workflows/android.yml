@@ -1,13 +1,22 @@
 name: Build JARVIS Android APK
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - jarvis-rebuild-v4
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,16 +37,32 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Clean
         run: gradle --no-daemon clean
-
       - name: Build debug APK
         run: |
           set -o pipefail
           gradle --no-daemon :app:assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
-
+      - name: Run unit tests
+        if: success()
+        run: |
+          for attempt in 1 2 3; do
+            gradle --no-daemon :app:testDebugUnitTest --stacktrace --warning-mode all && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              echo "Test dependency download failed; retrying ($attempt/3)."
+              sleep 15
+            fi
+          done
+          exit 1
       - name: Run Android lint
         if: success()
-        run: gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all
-
+        run: |
+          for attempt in 1 2 3; do
+            gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              echo "Lint dependency download failed; retrying ($attempt/3)."
+              sleep 15
+            fi
+          done
+          exit 1
       - name: Check APK exists
         if: success()
         run: |
@@ -47,13 +72,13 @@ jobs:
         if: success()
         run: "$ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk"
       - name: Record APK checksum
-        if: success() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
+        if: success()
         run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
       - name: Upload build output and log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-debug-apk-and-build-log
+          name: JARVIS-v4-debug-apk-and-build-log
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256

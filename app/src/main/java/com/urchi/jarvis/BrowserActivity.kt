@@ -47,14 +47,21 @@ class BrowserActivity : Activity() {
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            settings.allowFileAccessFromFileURLs = false
+            settings.allowUniversalAccessFromFileURLs = false
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            settings.setSupportMultipleWindows(false)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 settings.safeBrowsingEnabled = true
             }
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val scheme = request.url.scheme?.lowercase()
-                    return scheme != "https" && scheme != "http"
+                    return scheme != "https"
                 }
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                     handler.cancel()
@@ -73,14 +80,24 @@ class BrowserActivity : Activity() {
             web.loadUrl("https://duckduckgo.com/")
             return
         }
-        val url = if (
-            Regex("(?i)^(https?://|www\\.)").containsMatchIn(q) ||
-            Regex("(?i)^([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(q)
-        ) {
-            if (q.startsWith("http", true)) q else "https://$q"
-        } else {
-            "https://duckduckgo.com/?q=" + android.net.Uri.encode(q)
+        if (q.length > 2048) {
+            address.error = "Адрес или запрос слишком длинный"
+            return
         }
+        val url = when {
+            q.startsWith("https://", true) -> q
+            q.startsWith("http://", true) -> "https://" + q.substringAfter("://")
+            q.startsWith("www.", true) -> "https://$q"
+            Regex("(?i)^([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(q) -> "https://$q"
+            else -> "https://duckduckgo.com/?q=" + android.net.Uri.encode(q)
+        }
+        val parsed = try { android.net.Uri.parse(url) } catch (_: Exception) { null }
+        if (parsed == null || parsed.scheme != "https" ||
+            parsed.host.isNullOrBlank() || parsed.userInfo != null) {
+            address.error = "Разрешены только корректные HTTPS-адреса"
+            return
+        }
+        address.error = null
         address.setText(url)
         web.loadUrl(url)
     }

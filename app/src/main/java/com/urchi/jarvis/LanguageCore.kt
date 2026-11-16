@@ -23,6 +23,7 @@ object LanguageCore {
     ).map { r -> val p=r.split(" "); Element(p[0].toInt(),p[1],p.subList(2,p.size-1).joinToString(" "),p.last()) }
 
     fun answer(command:String):String? {
+        if (command.length > MAX_INPUT_LENGTH) return null
         val q=norm(command)
         if(q.contains("таблиц")&&q.contains("мендел")) return "Таблица Менделеева содержит 118 официально известных элементов. Скажи «элемент кислород», «элемент Fe» или «элемент 26»."
         if(q.startsWith("элемент ")) return element(q.removePrefix("элемент ").trim())
@@ -71,7 +72,9 @@ object LanguageCore {
         return try{"Ответ: "+fmt(Parser(e).parse())+"."}catch(_:Exception){null}
     }
     private fun fmt(v:Double)=if(abs(v-v.toLong())<1e-10)v.toLong().toString() else String.format(Locale.US,"%.8f",v).trimEnd('0').trimEnd('.')
-    private fun norm(s:String)=s.lowercase(Locale.ROOT).replace('ё','е').replace(Regex("\\s+")," ").trim()
+    private fun norm(s:String)=s.lowercase(Locale.ROOT).replace('ё','е')
+        .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
+        .replace(Regex("\\s+")," ").trim()
 
     private class Parser(private val s:String){
         var p=0
@@ -84,4 +87,5 @@ object LanguageCore {
         private fun skip(){while(p<s.length&&s[p].isWhitespace())p++}
     }
     fun elementCount()=elements.size
+    private const val MAX_INPUT_LENGTH = 256
 }

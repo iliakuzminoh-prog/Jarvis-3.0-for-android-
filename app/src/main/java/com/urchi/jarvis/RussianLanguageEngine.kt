@@ -1,7 +1,6 @@
 package com.urchi.jarvis
 
 import java.util.Locale
-import kotlin.math.abs
 
 /** Локальный языковой слой: разговорные формулировки, RU/EN и простая арифметика. */
 object RussianLanguageEngine {
@@ -31,7 +30,12 @@ object RussianLanguageEngine {
         "одиннадцать" to 11L,"двенадцать" to 12L,"тринадцать" to 13L,"четырнадцать" to 14L,
         "пятнадцать" to 15L,"шестнадцать" to 16L,"семнадцать" to 17L,"восемнадцать" to 18L,
         "девятнадцать" to 19L,"двадцать" to 20L,"тридцать" to 30L,"сорок" to 40L,
-        "пятьдесят" to 50L,"сто" to 100L,"тысяча" to 1000L,"тысячи" to 1000L,"тысяч" to 1000L
+        "пятьдесят" to 50L,"шестьдесят" to 60L,"семьдесят" to 70L,
+        "восемьдесят" to 80L,"девяносто" to 90L,"сто" to 100L,
+        "двести" to 200L,"триста" to 300L,"четыреста" to 400L,
+        "пятьсот" to 500L,"шестьсот" to 600L,"семьсот" to 700L,
+        "восемьсот" to 800L,"девятьсот" to 900L,
+        "тысяча" to 1000L,"тысячи" to 1000L,"тысяч" to 1000L
     )
     private val enNumbers = mapOf(
         "zero" to 0L,"one" to 1L,"two" to 2L,"three" to 3L,"four" to 4L,"five" to 5L,
@@ -82,10 +86,23 @@ object RussianLanguageEngine {
         return null
     }
 
+    fun normalizeSpokenNumbers(raw: String): String = replaceNumberWords(normalize(raw))
+
     fun answer(raw: String): String? {
         val q = normalize(raw)
         if (q.isBlank()) return null
-        arithmetic(q)?.let { return it }
+        // Не позволяем разговорным шаблонам перехватывать учебные вопросы,
+        // вычисления и просьбы объяснить предметную тему.
+        val taskSignals = listOf(
+            "что такое ", "что значит ", "объясни ", "расскажи про ", "почему ",
+            "реши ", "решить ", "задач", "посчитай ", "вычисли ", "найди ",
+            "формул", "таблиц", "элемент ", "падеж", "существительн", "глагол",
+            "фотосинтез", "атом", "клетк", "what is ", "what are ", "explain ",
+            "define ", "solve ", "calculate ", "find "
+        )
+        if (taskSignals.any { q.contains(it) } || q.any { it.isDigit() } ||
+            q.any { it in "+*/^=" }) return null
+
         val english = looksEnglish(q)
         val hit = intents.map { it to score(q, it.patterns) }
             .filter { it.second > 0 }.maxByOrNull { it.second }
@@ -140,28 +157,39 @@ object RussianLanguageEngine {
         return w
     }
 
-    private fun arithmetic(q: String): String? {
-        val normalized = replaceNumberWords(q)
-        val match = Regex("(?<!\\d)(\\d+(?:[.,]\\d+)?)[ ]*([+\\-×*÷/])[ ]*(\\d+(?:[.,]\\d+)?)(?!\\d)").find(normalized) ?: return null
-        val a = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
-        val b = match.groupValues[3].replace(',', '.').toDoubleOrNull() ?: return null
-        val result = when (match.groupValues[2]) {
-            "+" -> a + b
-            "-" -> a - b
-            "×", "*" -> a * b
-            "÷", "/" -> if (b == 0.0) return "На ноль делить нельзя." else a / b
-            else -> return null
-        }
-        return (if (looksEnglish(q)) "Answer: " else "Ответ: ") + format(result)
-    }
-
     private fun replaceNumberWords(q: String): String {
-        var result = q
         val all = ruNumbers + enNumbers
-        all.entries.sortedByDescending { it.key.length }.forEach { (word, value) ->
-            result = result.replace(Regex("\\b" + Regex.escape(word) + "\\b"), value.toString())
+        val tokens = Regex("""[\p{L}]+|\d+(?:[.,]\d+)?|[^\p{L}\d]+""")
+            .findAll(q).map { it.value }.toList()
+        val out = StringBuilder()
+        var i = 0
+        while (i < tokens.size) {
+            if (all[tokens[i]] == null) {
+                out.append(tokens[i])
+                i++
+                continue
+            }
+            var total = 0L
+            var group = 0L
+            while (i < tokens.size) {
+                if (tokens[i].isBlank() && i + 1 < tokens.size && all[tokens[i + 1]] != null) {
+                    i++
+                    continue
+                }
+                val value = all[tokens[i]] ?: break
+                when {
+                    value >= 1000L -> {
+                        total += maxOf(1L, group) * value
+                        group = 0L
+                    }
+                    value >= 100L -> group = maxOf(1L, group) * value
+                    else -> group += value
+                }
+                i++
+            }
+            out.append(total + group)
         }
-        return result
+        return out.toString()
     }
 
     private fun looksEnglish(q: String): Boolean =
@@ -169,9 +197,9 @@ object RussianLanguageEngine {
             .containsMatchIn(q) || q.count { it in 'a'..'z' } > q.count { it in 'а'..'я' } * 2
 
     private fun normalize(value: String): String =
-        value.lowercase(Locale.ROOT).replace('ё','е').replace('—','-').replace(Regex("\\s+")," ").trim()
+        value.lowercase(Locale.ROOT).replace('ё','е').replace('—','-')
+            .replace(Regex("[^\\p{L}\\p{N} +*/%=\\-()^.,]"), " ")
+            .replace(Regex("\\s+")," ").trim()
 
-    private fun format(v: Double): String =
-        if (abs(v - v.toLong()) < 1e-10) v.toLong().toString()
-        else String.format(Locale.US,"%.6f",v).trimEnd('0').trimEnd('.')
+
 }

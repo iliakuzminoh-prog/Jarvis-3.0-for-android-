@@ -310,7 +310,8 @@ class OverlayService : Service() {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
-        isRunning = false\n        super.onDestroy()
+        isRunning = false
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

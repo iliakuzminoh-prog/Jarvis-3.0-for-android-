@@ -42,6 +42,7 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -325,6 +326,10 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         private const val CHANNEL_ID = "jarvis_overlay"
         private const val NOTIFICATION_ID = 7314
     }

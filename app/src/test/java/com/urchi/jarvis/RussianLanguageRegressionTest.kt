@@ -65,4 +65,25 @@ class RussianLanguageRegressionTest {
     @Test fun evaluatesTheWholeExpressionInsteadOfOnlyTheFirstOperation() {
         assertTrue(MathSolver.solve("7 - 3 + 2")?.contains("6") == true)
     }
+    @Test fun routesYoutubeRecommendationsAsMediaAction() {
+        val request = MediaIntentRouter.resolve("включи любое видео из рекомендаций YouTube")
+        assertTrue(request?.kind == MediaIntentRouter.Kind.YOUTUBE_RECOMMENDATIONS)
+    }
+
+    @Test fun routesVkRecommendationsAsMediaAction() {
+        val request = MediaIntentRouter.resolve("включи любое видео из рекомендаций ВК")
+        assertTrue(request?.kind == MediaIntentRouter.Kind.VK_RECOMMENDATIONS)
+    }
+
+    @Test fun routesNamedSongToSearchInsteadOfGenericResume() {
+        val request = MediaIntentRouter.resolve("включи песню Queen Bohemian Rhapsody")
+        assertTrue(request?.kind == MediaIntentRouter.Kind.VK_MUSIC_SEARCH)
+        assertTrue(request?.query?.contains("queen") == true)
+    }
+
+    @Test fun doesNotPretendGenericMusicRequestNamesATrack() {
+        val request = MediaIntentRouter.resolve("включи песню")
+        assertTrue(request?.kind == MediaIntentRouter.Kind.MUSIC_NAME_REQUIRED)
+    }
+
 }

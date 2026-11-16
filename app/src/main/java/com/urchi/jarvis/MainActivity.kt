@@ -197,8 +197,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(subtitle, matchWrap())
         addSpace(10)
 
-        val orb = InternetOrbView(this).apply {
-            contentDescription = "Анимированный индикатор интернет-соединения"
+        val orb = InternetOrbView(this).apply {            contentDescription = "Анимированный индикатор интернет-соединения"
             startAnimation()
         }
         root.addView(orb, LinearLayout.LayoutParams(dp(96), dp(96)).apply {
@@ -397,8 +396,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val languageAnswer = RussianLanguageEngine.answer(cmd)
         if (languageAnswer != null) {
             lastTopic = cmd
-            lastIntent = "language"
-            respond(languageAnswer)
+            lastIntent = "language"            respond(languageAnswer)
             return
         }
 
@@ -487,6 +485,36 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("язык телефона") || cmd.contains("язык системы") -> openLanguageSettings()
                 cmd.contains("приложения по умолчанию") || cmd.contains("приложение по умолчанию") -> openDefaultAppsSettings()
                 cmd.contains("не беспокоить") || cmd.contains("режим не беспокоить") -> openDoNotDisturbSettings()
+                cmd == "домой" || cmd.contains("на главный экран") -> {
+                    val done = JarvisAccessibilityService.instance?.goHome() == true
+                    respond(if (done) "Перехожу на главный экран." else "Не удалось выполнить действие. Включи специальную возможность JARVIS в центре доступов.")
+                }
+                cmd == "назад" || cmd == "вернись назад" -> {
+                    val done = JarvisAccessibilityService.instance?.goBack() == true
+                    respond(if (done) "Возвращаюсь назад." else "Для управления экраном включи специальную возможность JARVIS.")
+                }
+                cmd.contains("открой уведомления") || cmd.contains("покажи уведомления") || cmd == "шторка уведомлений" -> {
+                    val done = JarvisAccessibilityService.instance?.openNotifications() == true
+                    respond(if (done) "Открываю панель уведомлений." else "Для этого действия включи специальную возможность JARVIS.")
+                }
+                cmd.contains("быстрые настройки") || cmd == "открой шторку" -> {
+                    val done = JarvisAccessibilityService.instance?.openQuickSettings() == true
+                    respond(if (done) "Открываю быстрые настройки." else "Для этого действия включи специальную возможность JARVIS.")
+                }
+                cmd.startsWith("нажми ") || cmd.startsWith("нажми кнопку ") || cmd.startsWith("коснись ") -> {
+                    val target = raw.substringAfter("нажми", raw.substringAfter("коснись", "")).trim()
+                        .removePrefix("кнопку ").removePrefix("на элемент ")
+                    val done = JarvisAccessibilityService.instance?.clickVisibleText(target) == true
+                    respond(if (done) "Нажал элемент «$target»." else "Не нашёл доступный элемент «$target» или специальная возможность JARVIS выключена.")
+                }
+                cmd.contains("прокрути вниз") || cmd == "листай вниз" -> {
+                    val done = JarvisAccessibilityService.instance?.scrollForward() == true
+                    respond(if (done) "Прокручиваю экран вниз." else "Не нашёл прокручиваемую область. Проверь специальную возможность JARVIS.")
+                }
+                cmd.contains("разрешения jarvis") || cmd.contains("настрой доступы") || cmd == "разрешения" -> {
+                    startActivity(Intent(this, PermissionCenterActivity::class.java))
+                    respond("Открываю центр разрешений JARVIS.")
+                }
                 cmd.contains("фонарик") -> toggleTorch(cmd.contains("выключ"))
                 cmd.contains("заряд") || cmd.contains("батаре") -> showBattery()
                 cmd.contains("информация о телефоне") || cmd.contains("характеристики телефона") -> showDeviceInfo()
@@ -597,8 +625,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else if (pageQuery.isNotBlank()) openWeb("$appTarget $pageQuery")
                     else {
                         val close = findApp(appTarget)
-                        if (close != null) { launchApp(close.packageName); respond("Нашёл похожее приложение: ${close.label}. Открываю.") }
-                        else { respond("Не нашёл приложение «" + appTarget + "». Если это сайт, скажи «открой сайт " + appTarget + "», а для поиска — «найди " + appTarget + "».") }
+                        if (close != null) { launchApp(close.packageName); respond("Нашёл похожее приложение: ${close.label}. Открываю.") }                        else { respond("Не нашёл приложение «" + appTarget + "». Если это сайт, скажи «открой сайт " + appTarget + "», а для поиска — «найди " + appTarget + "».") }
                     }
                 }
                 cmd.contains("музык") || cmd.contains("music") -> openRequestedMusicCommand(raw)
@@ -797,8 +824,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         try {
             val stats = StatFs(filesDir.absolutePath)
             val freeMb = stats.availableBytes / (1024L * 1024L)
-            val totalMb = stats.totalBytes / (1024L * 1024L)
-            respond("Во внутреннем разделе данных доступно примерно $freeMb МБ из $totalMb МБ. Это не полный отчёт обо всех разделах телефона.")
+            val totalMb = stats.totalBytes / (1024L * 1024L)            respond("Во внутреннем разделе данных доступно примерно $freeMb МБ из $totalMb МБ. Это не полный отчёт обо всех разделах телефона.")
         } catch (_: Exception) {
             respond("Не удалось прочитать сведения о свободном месте.")
         }
@@ -997,8 +1023,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         nextVpn()
     }
 
-    private fun openAdGuardVpn() {
-        val installed = packageManager.getLaunchIntentForPackage("com.adguard.vpn") != null
+    private fun openAdGuardVpn() {        val installed = packageManager.getLaunchIntentForPackage("com.adguard.vpn") != null
         if (!installed) {
             val candidate = installedApps.firstOrNull {
                 val value = (it.label + " " + it.packageName).lowercase(Locale.ROOT)
@@ -1197,8 +1222,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .replace(Regex("^(приложение|программу|программа|app)\\s+"), "")
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
         val aliases = mapOf(
-            "ютуб" to "youtube", "ютуп" to "youtube", "ютюб" to "youtube", "ютубе" to "youtube",
-            "yutub" to "youtube", "yutube" to "youtube", "youtub" to "youtube",
+            "ютуб" to "youtube", "ютуп" to "youtube", "ютюб" to "youtube", "ютубе" to "youtube",            "yutub" to "youtube", "yutube" to "youtube", "youtub" to "youtube",
             "телега" to "telegram", "телеграм" to "telegram", "телеграмм" to "telegram",
             "ватсап" to "whatsapp", "вотсап" to "whatsapp", "вацап" to "whatsapp",
             "вконтакте" to "vk", "вк" to "vk", "тикток" to "tiktok",
@@ -1397,8 +1421,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         var result = tokens[0].toDouble()
         var j = 1
         while (j + 1 < tokens.size) {
-            val number = tokens[j + 1].toDouble()
-            result = when (tokens[j]) { "+" -> result + number; "-" -> result - number; "*" -> result * number; "/" -> if (number != 0.0) result / number else return "деление на ноль невозможно"; else -> return "не удалось посчитать" }
+            val number = tokens[j + 1].toDouble()            result = when (tokens[j]) { "+" -> result + number; "-" -> result - number; "*" -> result * number; "/" -> if (number != 0.0) result / number else return "деление на ноль невозможно"; else -> return "не удалось посчитать" }
             j += 2
         }
         return if (result % 1.0 == 0.0) result.toLong().toString() else String.format(Locale.US, "%.6f", result).trimEnd('0').trimEnd('.')
@@ -1597,8 +1620,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun selectPhotoForAnalysis() {
-        try {
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+        try {            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 type = "image/*"
                 addCategory(Intent.CATEGORY_OPENABLE)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -1797,5 +1819,4 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
         const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
-    }
-}
+    }}

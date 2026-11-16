@@ -21,8 +21,6 @@ import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
-import android.animation.ObjectAnimator
-import android.view.animation.LinearInterpolator
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -240,8 +238,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         addSpace(10)
 
         val orb = InternetOrbView(this).apply {
-            contentDescription = "Анимированный индикатор интернет-соединения"
-            startAnimation()
+            contentDescription = "Индикатор интернет-соединения"
         }
         root.addView(orb, LinearLayout.LayoutParams(dp(124), dp(124)).apply {
             gravity = Gravity.CENTER
@@ -1929,12 +1926,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private class InternetOrbView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val animator = ObjectAnimator.ofFloat(this, "rotation", 0f, 360f).apply {
-            duration = 12000L
-            repeatCount = ObjectAnimator.INFINITE
-            interpolator = LinearInterpolator()
-        }
-
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val cx = width / 2f
@@ -1969,14 +1960,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             canvas.drawCircle(cx-r*.92f, cy+r*.20f, r*.065f, paint)
         }
 
-        fun startAnimation() {
-            if (!animator.isStarted) animator.start()
-        }
-
-        override fun onDetachedFromWindow() {
-            animator.cancel()
-            super.onDetachedFromWindow()
-        }
     }
 
     private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {

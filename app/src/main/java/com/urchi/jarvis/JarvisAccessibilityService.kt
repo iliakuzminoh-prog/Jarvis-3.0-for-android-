@@ -5,6 +5,16 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 class JarvisAccessibilityService : AccessibilityService() {
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 
@@ -14,7 +24,8 @@ class JarvisAccessibilityService : AccessibilityService() {
     }
 
     private fun clickRecursive(node: AccessibilityNodeInfo, text: String): Boolean {
-        val target = text.lowercase()
+        val target = text.trim().take(200).lowercase()
+        if (target.isBlank()) return false
         val label = node.text?.toString()?.lowercase().orEmpty()
         val desc = node.contentDescription?.toString()?.lowercase().orEmpty()
         if (label == target || desc == target) {
@@ -29,10 +40,20 @@ class JarvisAccessibilityService : AccessibilityService() {
     }
 
     companion object {
-        fun isEnabled(context: android.content.Context): Boolean {
-            val manager = context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE)
-                as android.view.accessibility.AccessibilityManager
-            return manager.isEnabled
+        @Volatile
+        var instance: JarvisAccessibilityService? = null
+            private set
+
+        fun isServiceEnabled(context: android.content.Context): Boolean {
+            val enabled = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ).orEmpty()
+            val expected = context.packageName + "/" + JarvisAccessibilityService::class.java.name
+            return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
         }
+
+        fun isEnabled(context: android.content.Context): Boolean =
+            isServiceEnabled(context)
     }
 }

@@ -34,7 +34,7 @@ import kotlin.math.min
 
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
-    private var bubble: TextView? = null
+    private var bubble: View? = null
     private var panel: View? = null
     private var lastTapAt = 0L
     private val panelColor = Color.rgb(16, 27, 38)

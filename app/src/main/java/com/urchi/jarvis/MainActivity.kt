@@ -125,8 +125,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val authorized = !expectedToken.isNullOrBlank() && suppliedToken == expectedToken
         val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)?.take(1000)
         val voice = intent.getBooleanExtra(EXTRA_OVERLAY_VOICE, false)
+        val openChats = intent.getBooleanExtra(EXTRA_OVERLAY_CHATS, false)
+        val openMedia = intent.getBooleanExtra(EXTRA_OVERLAY_MEDIA, false)
+        val openSettings = intent.getBooleanExtra(EXTRA_OVERLAY_SETTINGS, false)
         intent.removeExtra(EXTRA_OVERLAY_COMMAND)
         intent.removeExtra(EXTRA_OVERLAY_VOICE)
+        intent.removeExtra(EXTRA_OVERLAY_CHATS)
+        intent.removeExtra(EXTRA_OVERLAY_MEDIA)
+        intent.removeExtra(EXTRA_OVERLAY_SETTINGS)
         intent.removeExtra(EXTRA_OVERLAY_TOKEN)
         if (!authorized) return
 
@@ -134,6 +140,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         prefs.edit().putString(PREF_OVERLAY_INTENT_TOKEN, java.util.UUID.randomUUID().toString()).apply()
         if (!command.isNullOrBlank()) root.post { runCommand(command) }
         else if (voice) root.post { startVoice() }
+        else if (openChats) root.post { showChats() }
+        else if (openMedia) root.post { showMediaStudio() }
+        else if (openSettings) root.post { showJarvisSettings() }
     }
 
     private fun toggleOverlay() {
@@ -2277,6 +2286,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
         const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
+        const val EXTRA_OVERLAY_CHATS = "com.urchi.jarvis.OVERLAY_CHATS"
+        const val EXTRA_OVERLAY_MEDIA = "com.urchi.jarvis.OVERLAY_MEDIA"
+        const val EXTRA_OVERLAY_SETTINGS = "com.urchi.jarvis.OVERLAY_SETTINGS"
         const val EXTRA_OVERLAY_TOKEN = "com.urchi.jarvis.OVERLAY_TOKEN"
         private const val PREF_OVERLAY_INTENT_TOKEN = "overlay_intent_token"
         private const val MAX_COMMAND_LENGTH = 2000

@@ -48,6 +48,12 @@ class RussianLanguageRegressionTest {
         assertTrue(SmartCommandEngine.resolve("что такое фотосинтез") == null)
     }
 
+    @Test fun conversationTemplatesDoNotInterceptSchoolQuestions() {
+        assertTrue(RussianLanguageEngine.answer("что такое фотосинтез?") == null)
+        assertTrue(RussianLanguageEngine.answer("что такое существительное?") == null)
+        assertTrue(RussianLanguageEngine.answer("what is photosynthesis?") == null)
+    }
+
     @Test fun combinesRussianTensAndUnitsInSpokenArithmetic() {
         assertTrue(RussianLanguageEngine.answer("двадцать три плюс пять")?.contains("28") == true)
     }

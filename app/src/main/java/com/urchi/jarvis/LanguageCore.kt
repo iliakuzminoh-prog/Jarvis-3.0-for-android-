@@ -71,7 +71,9 @@ object LanguageCore {
         return try{"Ответ: "+fmt(Parser(e).parse())+"."}catch(_:Exception){null}
     }
     private fun fmt(v:Double)=if(abs(v-v.toLong())<1e-10)v.toLong().toString() else String.format(Locale.US,"%.8f",v).trimEnd('0').trimEnd('.')
-    private fun norm(s:String)=s.lowercase(Locale.ROOT).replace('ё','е').replace(Regex("\\s+")," ").trim()
+    private fun norm(s:String)=s.lowercase(Locale.ROOT).replace('ё','е')
+        .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
+        .replace(Regex("\\s+")," ").trim()
 
     private class Parser(private val s:String){
         var p=0

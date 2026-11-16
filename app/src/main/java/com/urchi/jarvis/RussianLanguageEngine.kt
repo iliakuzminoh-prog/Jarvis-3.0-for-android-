@@ -1,7 +1,6 @@
 package com.urchi.jarvis
 
 import java.util.Locale
-import kotlin.math.abs
 
 /** Локальный языковой слой: разговорные формулировки, RU/EN и простая арифметика. */
 object RussianLanguageEngine {
@@ -92,8 +91,6 @@ object RussianLanguageEngine {
     fun answer(raw: String): String? {
         val q = normalize(raw)
         if (q.isBlank()) return null
-        arithmetic(q)?.let { return it }
-
         // Не позволяем разговорным шаблонам перехватывать учебные вопросы,
         // вычисления и просьбы объяснить предметную тему.
         val taskSignals = listOf(
@@ -160,25 +157,6 @@ object RussianLanguageEngine {
         return w
     }
 
-    private fun arithmetic(q: String): String? {
-        val normalized = replaceNumberWords(q)
-            .replace(Regex("\\b(плюс|plus)\\b"), "+")
-            .replace(Regex("\\b(минус|minus)\\b"), "-")
-            .replace(Regex("\\b(умножить( на)?|умножь( на)?|times)\\b"), "*")
-            .replace(Regex("\\b(разделить на|делить на|divided by)\\b"), "/")
-        val match = Regex("(?<!\\d)(\\d+(?:[.,]\\d+)?)[ ]*([+\\-×*÷/])[ ]*(\\d+(?:[.,]\\d+)?)(?!\\d)").find(normalized) ?: return null
-        val a = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
-        val b = match.groupValues[3].replace(',', '.').toDoubleOrNull() ?: return null
-        val result = when (match.groupValues[2]) {
-            "+" -> a + b
-            "-" -> a - b
-            "×", "*" -> a * b
-            "÷", "/" -> if (b == 0.0) return "На ноль делить нельзя." else a / b
-            else -> return null
-        }
-        return (if (looksEnglish(q)) "Answer: " else "Ответ: ") + format(result)
-    }
-
     private fun replaceNumberWords(q: String): String {
         val all = ruNumbers + enNumbers
         val tokens = Regex("""[\p{L}]+|\d+(?:[.,]\d+)?|[^\p{L}\d]+""")
@@ -223,7 +201,5 @@ object RussianLanguageEngine {
             .replace(Regex("[^\\p{L}\\p{N} +*/%=\\-()^.,]"), " ")
             .replace(Regex("\\s+")," ").trim()
 
-    private fun format(v: Double): String =
-        if (abs(v - v.toLong()) < 1e-10) v.toLong().toString()
-        else String.format(Locale.US,"%.6f",v).trimEnd('0').trimEnd('.')
+
 }

@@ -78,6 +78,7 @@ object MathSolver {
 
     fun solve(raw: String): String? {
         val q = raw.lowercase(Locale.ROOT).replace('ё','е')
+            .replace(Regex("^(реши|решить|посчитай|вычисли|найди)\\s+(задачу|уравнение|пример)?\\s*"), "")
             .replace("сколько будет", "").replace("посчитай", "").replace("вычисли", "")
             .replace("реши", "").replace("равно", "=")
             .replace("умножить на", "*").replace("разделить на", "/")

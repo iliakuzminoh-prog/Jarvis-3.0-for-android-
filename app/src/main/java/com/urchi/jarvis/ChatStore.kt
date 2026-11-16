@@ -46,7 +46,7 @@ class ChatStore(context: Context) {
         val chat = all.firstOrNull { it.id == id } ?: return
         chat.messages.add(Message(if (role == "user") "user" else "assistant", clean, System.currentTimeMillis()))
         if (chat.title == "Новый чат" && role == "user")
-            chat.title = clean.replace(Regex("\s+"), " ").take(48)
+            chat.title = clean.replace(Regex("\\s+"), " ").take(48)
         if (chat.messages.size > MAX_MESSAGES)
             chat.messages.subList(0, chat.messages.size - MAX_MESSAGES).clear()
         chat.updatedAt = System.currentTimeMillis()

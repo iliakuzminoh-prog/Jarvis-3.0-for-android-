@@ -1918,9 +1918,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         output.text = message
         say(message)
     }
-        output.text = message
-        say(message)
-    }
 
     private fun say(message: String) {
         if (!ttsReady) return
@@ -2079,8 +2076,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         builder.setPositiveButton("Новый чат") { _, _ ->
             val chat = chats.create()
             activeChatId = chat.id
-            output.text = "НОВЫЙ ЧАТ
-Готов к работе."
+            output.text = "НОВЫЙ ЧАТ\nГотов к работе."
         }
         builder.setNegativeButton("Закрыть", null)
         if (list.isEmpty()) builder.setMessage("История пока пуста. Первый запрос создаст историю автоматически.")
@@ -2092,9 +2088,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         AlertDialog.Builder(this).setTitle(chat.title).setItems(actions) { _, which ->
             when (which) {
                 0 -> {
-                    val text = chat.messages.takeLast(40).joinToString("
-
-") {
+                    val text = chat.messages.takeLast(40).joinToString("\n\n") {
                         if (it.role == "user") "ВЫ: ${it.text}" else "JARVIS: ${it.text}"
                     }
                     output.text = if (text.isBlank()) "Чат пуст." else text
@@ -2134,7 +2128,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun showImageGenerationDialog() {
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0) }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), 0)
+        }
         val prompt = EditText(this).apply {
             hint = "Например: футуристический город ночью, 3D, бирюзовый свет"
             setTextColor(Color.WHITE)
@@ -2157,8 +2154,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (key.isNullOrBlank()) {
                     showImageKeyDialog()
                 } else {
-                    output.text = "ГЕНЕРАЦИЯ
-Отправляю запрос модели..."
+                    output.text = "ГЕНЕРАЦИЯ\nОтправляю запрос модели..."
                     JarvisImageGenerator.generate(this, prompt.text.toString(), key) { result ->
                         runOnUiThread {
                             result.onSuccess { file -> showGeneratedImage(file) }
@@ -2245,16 +2241,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     respond("Неприкреплённые записи памяти удалены.")
                 }
                 5 -> {
-                    val msg = "Чатов: ${chats.list().size}
-Сообщений: ${chats.messageCount()}
-" +
-                        "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база
-" +
-                        "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}
-" +
+                    val msg = "Чатов: ${chats.list().size}\nСообщений: ${chats.messageCount()}\n" +
+                        "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база\n" +
+                        "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}\n" +
                         "Управление кликами: ${if (JarvisAccessibilityService.isEnabled(this)) "разрешено" else "не разрешено"}"
-                    output.text = "СИСТЕМА
-${msg}"
+                    output.text = "СИСТЕМА\n${msg}"
                 }
             }
         }.setNegativeButton("Закрыть", null).show()
@@ -2262,8 +2253,7 @@ ${msg}"
 
     private fun showPermissionCenter() {
         val items = permissionCenter.items(this)
-        val labels = items.map { "${if (it.granted) "✓" else "○"} ${it.title}
-${it.description}" }.toTypedArray()
+        val labels = items.map { "${if (it.granted) "✓" else "○"} ${it.title}\n${it.description}" }.toTypedArray()
         AlertDialog.Builder(this).setTitle("Центр разрешений")
             .setItems(labels) { _, which -> items[which].action() }
             .setMessage("JARVIS не включает специальные доступы скрытно. Android требует явного согласия пользователя.")

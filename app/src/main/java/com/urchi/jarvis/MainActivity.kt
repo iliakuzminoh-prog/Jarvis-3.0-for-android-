@@ -93,18 +93,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         AlertDialog.Builder(this)
             .setTitle("Настройка JARVIS")
             .setMessage(
-                "При первом запуске JARVIS может запросить только нужные системные разрешения. " +
-                "Плавающее окно и уведомления включаются отдельно. " +
-                "VPN-клиенты сторонних разработчиков нельзя включить скрыто: Android сам показывает системное подтверждение."
+                "Разрешения запрашиваются только при первом использовании соответствующей функции. " +
+                "Микрофон нужен для голосового ввода, камера — для камеры и фонарика, " +
+                "а показ поверх окон и уведомления — только для плавающего режима. " +
+                "VPN-клиенты сторонних разработчиков Android разрешает запускать только через собственное системное подтверждение."
             )
-            .setPositiveButton("Настроить") { _, _ ->
+            .setPositiveButton("Продолжить") { _, _ ->
                 prefs.edit().putBoolean("first_run_setup_done", true).apply()
-                if (Build.VERSION.SDK_INT >= 33 &&
-                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 53)
-                } else {
-                    enableOverlay()
-                }
             }
             .setNegativeButton("Позже") { _, _ ->
                 prefs.edit().putBoolean("first_run_setup_done", true).apply()

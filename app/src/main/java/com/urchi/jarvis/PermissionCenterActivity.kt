@@ -1,20 +1,19 @@
 package com.urchi.jarvis
 
 import android.Manifest
-import android.app.AlarmManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class PermissionCenterActivity : AppCompatActivity() {
@@ -65,9 +64,10 @@ class PermissionCenterActivity : AppCompatActivity() {
             granted(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA), 103)
         }
-        addPermission("Точные будильники", "Планирование срабатывания в заданное время",
-            if (canExactAlarms()) "Разрешено" else "Требуется настройка",
-            canExactAlarms()) { openExactAlarmSettings() }
+        addPermission("Будильники", "Сейчас JARVIS передаёт создание будильника стандартному приложению «Часы». Специальный доступ точных будильников для этого не нужен.", "Через системные Часы", true) {
+            runCatching { startActivity(Intent(android.provider.AlarmClock.ACTION_SET_ALARM)) }
+                .onFailure { Toast.makeText(this, "Не найдено приложение Часы.", Toast.LENGTH_SHORT).show() }
+        }
         addPermission("Показ поверх приложений", "Плавающая кнопка и окно JARVIS",
             if (Settings.canDrawOverlays(this)) "Разрешено" else "Требуется настройка",
             Settings.canDrawOverlays(this)) { openOverlaySettings() }
@@ -105,19 +105,6 @@ class PermissionCenterActivity : AppCompatActivity() {
 
     private fun granted(permission: String): Boolean =
         Build.VERSION.SDK_INT < 23 || checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
-
-    private fun canExactAlarms(): Boolean {
-        if (Build.VERSION.SDK_INT < 31) return true
-        val manager = getSystemService(ALARM_SERVICE) as AlarmManager
-        return manager.canScheduleExactAlarms()
-    }
-
-    private fun openExactAlarmSettings() {
-        if (Build.VERSION.SDK_INT < 31) return
-        runCatching {
-            startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName")))
-        }.onFailure { openAppDetails() }
-    }
 
     private fun openOverlaySettings() {
         if (Settings.canDrawOverlays(this)) return

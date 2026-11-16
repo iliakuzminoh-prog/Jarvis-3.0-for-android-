@@ -99,13 +99,34 @@ object SchoolKnowledge {
         "ссср" to "СССР — Союз Советских Социалистических Республик, существовавший с 1922 по 1991 год.",
         "русский язык" to "Русский язык — восточнославянский язык индоевропейской семьи.",
         "английский язык" to "Английский язык — западногерманский язык индоевропейской семьи, широко используемый как международный язык.",
-        "обществознание" to "Обществознание объединяет знания о человеке и обществе, экономике, политике, праве и социальных отношениях."
+        "обществознание" to "Обществознание объединяет знания о человеке и обществе, экономике, политике, праве и социальных отношениях.",
+        "photosynthesis" to "Photosynthesis is the process by which plants, algae, and some microorganisms use light energy to make organic substances from carbon dioxide and water. Oxygen is usually released.",
+        "mitosis" to "Mitosis is cell division that produces two daughter cells with the same chromosome set as the original cell.",
+        "meiosis" to "Meiosis is a sequence of two cell divisions that produces cells with half the original chromosome number.",
+        "dna" to "DNA stores hereditary information. Its four main bases are adenine, thymine, guanine, and cytosine.",
+        "rna" to "RNA helps use genetic information. Important types include messenger RNA, transfer RNA, and ribosomal RNA.",
+        "cell" to "A cell is the basic structural and functional unit of living organisms.",
+        "gravity" to "Gravity is the interaction between objects with mass. Near Earth's surface, the gravitational acceleration is approximately 9.81 m/s².",
+        "atom" to "An atom consists of a nucleus containing protons and usually neutrons, surrounded by electrons.",
+        "molecule" to "A molecule is an electrically neutral group of two or more atoms held together by chemical bonds.",
+        "algorithm" to "An algorithm is a finite, clearly defined sequence of steps for solving a problem or completing a task.",
+        "ecosystem" to "An ecosystem includes living organisms and the non-living environment interacting through energy flow and matter cycling.",
+        "climate" to "Climate is the long-term pattern of weather conditions in a region, usually described using observations over many years.",
+        "equator" to "The equator is an imaginary line around Earth, equally distant from the geographic poles, dividing the planet into Northern and Southern Hemispheres.",
+        "newtons second law" to "Newton's second law states that the net force on an object equals its mass multiplied by its acceleration: F = m·a.",
+        "ohms law" to "Ohm's law for an electrical component is V = I·R, where voltage equals current multiplied by resistance.",
+        "water" to "Water is a chemical compound with the formula H₂O. Each molecule contains two hydrogen atoms and one oxygen atom.",
+        "world war ii" to "World War II was a global conflict that lasted from 1939 to 1945.",
+        "renaissance" to "The Renaissance was a period of major cultural, artistic, and scientific change in Europe, roughly from the 14th to the 16th century.",
+        "inflation" to "Inflation is a sustained increase in the general level of prices, reducing the purchasing power of money.",
+        "demand" to "In economics, demand is the quantity of a good or service consumers are willing and able to buy at different prices."
     )
 
     fun answer(command: String): String? {
         val q = normalize(command)
         facts.entries.firstOrNull { q.contains(it.key) }?.let { return it.value }
-        val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ")
+        val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ",
+            "what is ", "what are ", "define ", "explain ", "tell me about ")
         val topic = prefixes.firstNotNullOfOrNull { p -> if (q.startsWith(p)) q.removePrefix(p).trim() else null } ?: return null
         return facts.entries.firstOrNull { topic.contains(it.key) || it.key.contains(topic) }?.value
     }

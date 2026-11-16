@@ -55,10 +55,14 @@ class RussianLanguageRegressionTest {
     }
 
     @Test fun combinesRussianTensAndUnitsInSpokenArithmetic() {
-        assertTrue(RussianLanguageEngine.answer("двадцать три плюс пять")?.contains("28") == true)
+        assertTrue(MathSolver.solve("двадцать три плюс пять")?.contains("28") == true)
     }
 
     @Test fun combinesEnglishTensAndUnitsInSpokenArithmetic() {
-        assertTrue(RussianLanguageEngine.answer("twenty three plus five")?.contains("28") == true)
+        assertTrue(MathSolver.solve("twenty three plus five")?.contains("28") == true)
+    }
+
+    @Test fun evaluatesTheWholeExpressionInsteadOfOnlyTheFirstOperation() {
+        assertTrue(MathSolver.solve("7 - 3 + 2")?.contains("6") == true)
     }
 }

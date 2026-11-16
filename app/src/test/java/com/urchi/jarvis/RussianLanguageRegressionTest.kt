@@ -87,3 +87,23 @@ class RussianLanguageRegressionTest {
     }
 
 }
+
+
+class SpellCheckEngineTest {
+    @org.junit.Test fun correctsTheUsersWeddingExample() {
+        val answer = SpellCheckEngine.answer("Как правильно написать по русски женидьба?")
+        org.junit.Assert.assertNotNull(answer)
+        org.junit.Assert.assertTrue(answer!!.contains("женитьба"))
+        org.junit.Assert.assertTrue(answer.contains("через"))
+    }
+
+    @org.junit.Test fun doesNotInterceptOrdinaryConversation() {
+        org.junit.Assert.assertNull(SpellCheckEngine.answer("как дела"))
+    }
+
+    @org.junit.Test fun explainsZhiShiRule() {
+        val answer = SpellCheckEngine.answer("как правильно пишется жыраф?")
+        org.junit.Assert.assertTrue(answer!!.contains("жираф"))
+        org.junit.Assert.assertTrue(answer.contains("жи–ши"))
+    }
+}

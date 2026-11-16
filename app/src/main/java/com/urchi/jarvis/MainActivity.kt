@@ -373,6 +373,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         if (handleConversation(cmd)) return
 
+        // Языковой слой сначала переводит естественную фразу в точную системную
+        // команду. Поэтому «выруби музыку», «поставь будильник на семь тридцать»
+        // и другие словоформы не должны уходить в браузер.
+        val normalizedAction = RussianLanguageEngine.actionCommand(cmd)
+        if (normalizedAction != null && normalizedAction != cmd) {
+            runCommand(normalizedAction)
+            return
+        }
+
         // Сначала пытаемся понять намерение естественной фразой.
         // Важное правило: неизвестная фраза не должна превращаться в случайную
         // команду из-за одного совпавшего слова.

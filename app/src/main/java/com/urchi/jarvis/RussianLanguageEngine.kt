@@ -175,14 +175,17 @@ object RussianLanguageEngine {
             var total = 0L
             var group = 0L
             while (i < tokens.size) {
+                if (tokens[i].isBlank() && i + 1 < tokens.size && all[tokens[i + 1]] != null) {
+                    i++
+                    continue
+                }
                 val value = all[tokens[i]] ?: break
                 when {
                     value >= 1000L -> {
                         total += maxOf(1L, group) * value
                         group = 0L
                     }
-                    value == 100L -> group = maxOf(1L, group) * value
-                    value >= 20L -> group += value
+                    value >= 100L -> group = maxOf(1L, group) * value
                     else -> group += value
                 }
                 i++

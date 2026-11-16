@@ -408,8 +408,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             cmd in setOf("что ты помнишь", "покажи память", "what do you remember", "show memory") -> {
                 val items = localMemory.recent(12)
-                output.text = if (items.isEmpty()) "ЛОКАЛЬНАЯ ПАМЯТЬ\\nПока нет сохранённых записей."
-                    else "ЛОКАЛЬНАЯ ПАМЯТЬ\\n" + items.joinToString("\\n") { "• " + it.text }
+                output.text = if (items.isEmpty()) "ЛОКАЛЬНАЯ ПАМЯТЬ\nПока нет сохранённых записей."
+                    else "ЛОКАЛЬНАЯ ПАМЯТЬ\n" + items.joinToString("\n") { "• " + it.text }
                 say(if (items.isEmpty()) "Память пока пуста." else "В памяти сохранено записей: ${items.size}. Список показан на экране.")
                 return
             }

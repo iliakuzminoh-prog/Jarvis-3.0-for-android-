@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_description">JARVIS может выполнять разрешённые пользователем действия с интерфейсом, например нажимать указанную кнопку. Сервис не включается автоматически.</string>
+</resources>

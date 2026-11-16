@@ -155,7 +155,7 @@ object SchoolKnowledge {
 
     fun answer(command: String): String? {
         val q = normalize(command)
-        facts.entries.firstOrNull { q.contains(it.key) }?.let { return it.value }
+        facts.entries.firstOrNull { q.contains(it.key) || matchesPhraseByStem(q, it.key) }?.let { return it.value }
         val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ",
             "what is ", "what are ", "define ", "explain ", "tell me about ")
         val topic = prefixes.firstNotNullOfOrNull { p -> if (q.startsWith(p)) q.removePrefix(p).trim() else null } ?: return null
@@ -163,6 +163,27 @@ object SchoolKnowledge {
     }
 
     fun topicCount(): Int = facts.size
+
+    private fun matchesPhraseByStem(query: String, key: String): Boolean {
+        val queryWords = normalize(query).split(" ").filter { it.isNotBlank() }
+        val keyWords = normalize(key).split(" ").filter { it.isNotBlank() }
+        if (keyWords.size < 2) return false
+        return keyWords.all { keyWord ->
+            queryWords.any { queryWord -> stem(queryWord) == stem(keyWord) }
+        }
+    }
+
+    private fun stem(word: String): String {
+        if (word.any { it !in 'а'..'я' }) return word
+        val endings = listOf(
+            "иями", "ями", "ами", "ого", "ему", "ому", "ее", "ие", "ые", "ое",
+            "ей", "ий", "ый", "ой", "ем", "ом", "им", "ым", "ах", "ях",
+            "ам", "ям", "ов", "ев", "ою", "ею", "ую", "юю", "ью",
+            "ия", "ии", "ию", "и", "ы", "а", "я", "у", "ю", "е", "о", "ь"
+        )
+        val ending = endings.firstOrNull { word.length > it.length + 2 && word.endsWith(it) }
+        return if (ending == null) word else word.dropLast(ending.length)
+    }
 
     private fun normalize(value: String): String = value.lowercase()
         .replace('ё', 'е')

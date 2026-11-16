@@ -19,9 +19,11 @@ class MemoryStore(context: Context) {
 
     fun remember(text: String, category: String = "general", pinned: Boolean = false): Memory {
         val clean = text.trim()
-        require(clean.isNotEmpty())
-        val item = Memory(System.currentTimeMillis(), clean,
-            category.trim().ifEmpty { "general" }, System.currentTimeMillis(), pinned)
+        require(clean.isNotEmpty()) { "Memory text must not be empty" }
+        require(clean.length <= MAX_TEXT_LENGTH) { "Memory text is too long" }
+        val safeCategory = category.trim().take(MAX_CATEGORY_LENGTH).ifEmpty { "general" }
+        val now = System.currentTimeMillis()
+        val item = Memory(now, clean, safeCategory, now, pinned)
         synchronized(lock) {
             val all = readAll().toMutableList()
             all.removeAll { it.text.equals(clean, ignoreCase = true) }
@@ -32,7 +34,7 @@ class MemoryStore(context: Context) {
     }
 
     fun forget(text: String): Int {
-        val query = text.trim()
+        val query = text.trim().take(MAX_QUERY_LENGTH)
         if (query.isEmpty()) return 0
         synchronized(lock) {
             val all = readAll()
@@ -45,19 +47,23 @@ class MemoryStore(context: Context) {
     }
 
     fun search(query: String, limit: Int = 8): List<Memory> {
-        val q = query.trim().lowercase(Locale.getDefault())
+        val q = query.trim().take(MAX_QUERY_LENGTH).lowercase(Locale.getDefault())
         if (q.isEmpty()) return emptyList()
+        val safeLimit = limit.coerceIn(1, MAX_SEARCH_RESULTS)
         return synchronized(lock) {
             readAll().sortedWith(
                 compareByDescending<Memory> { if (it.pinned) 1 else 0 }
                     .thenByDescending { score(it.text, q) }
                     .thenByDescending { it.createdAt }
-            ).filter { score(it.text, q) > 0 }.take(limit)
+            ).filter { score(it.text, q) > 0 }.take(safeLimit)
         }
     }
 
     fun recent(limit: Int = 12): List<Memory> =
-        synchronized(lock) { readAll().sortedByDescending { it.createdAt }.take(limit) }
+        synchronized(lock) {
+            readAll().sortedByDescending { it.createdAt }
+                .take(limit.coerceIn(1, MAX_SEARCH_RESULTS))
+        }
 
     fun clearUnpinned() {
         synchronized(lock) { writeAll(readAll().filter { it.pinned }) }
@@ -107,5 +113,9 @@ class MemoryStore(context: Context) {
     companion object {
         private const val KEY = "memories"
         private const val MAX_MEMORIES = 2000
+        private const val MAX_TEXT_LENGTH = 1000
+        private const val MAX_CATEGORY_LENGTH = 48
+        private const val MAX_QUERY_LENGTH = 200
+        private const val MAX_SEARCH_RESULTS = 50
     }
 }

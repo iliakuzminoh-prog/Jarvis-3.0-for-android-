@@ -1567,8 +1567,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     }
                     val top = labels.sortedByDescending { it.confidence }.take(8)
                     val result = top.joinToString(", ") { it.text + " (" + (it.confidence * 100).toInt() + "%)" }
-                    output.text = "АНАЛИЗ ФОТО
-$result"
+                    output.text = "АНАЛИЗ ФОТО\n$result"
                     say("На фотографии распознано: " + top.take(4).joinToString(", ") { it.text })
                 }
                 .addOnFailureListener {

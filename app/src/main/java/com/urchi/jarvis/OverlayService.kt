@@ -4,6 +4,12 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
+import android.animation.ValueAnimator
+import android.graphics.Path
+import android.graphics.PathMeasure
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -37,6 +43,16 @@ class OverlayService : Service() {
     private var bubble: View? = null
     private var panel: View? = null
     private var lastTapAt = 0L
+    private var edgeView: MusicPerimeterView? = null
+    private var edgeAnimator: ValueAnimator? = null
+    private val musicHandler = Handler(Looper.getMainLooper())
+    private val musicPoll = object : Runnable {
+        override fun run() {
+            val active = try { (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive } catch (_: Exception) { false }
+            if (active) showMusicPerimeter() else hideMusicPerimeter()
+            if (isRunning) musicHandler.postDelayed(this, 850L)
+        }
+    }
     private val panelColor = Color.rgb(16, 27, 38)
     private val accent = Color.rgb(83, 215, 194)
 
@@ -46,6 +62,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        musicHandler.post(musicPoll)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -56,6 +73,95 @@ class OverlayService : Service() {
         }
         if (bubble == null) showBubble()
         return START_STICKY
+    }
+
+    /**
+     * A non-touchable full-screen overlay. It only appears while Android reports
+     * an active music stream, so the user's controls remain fully usable.
+     */
+    private fun showMusicPerimeter() {
+        if (edgeView != null || !Settings.canDrawOverlays(this)) return
+        val view = MusicPerimeterView(this)
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        try {
+            windowManager.addView(view, params)
+            edgeView = view
+            edgeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 3600L
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener {
+                    view.progress = it.animatedValue as Float
+                    view.invalidate()
+                }
+                start()
+            }
+        } catch (_: Exception) {
+            edgeView = null
+            edgeAnimator?.cancel()
+            edgeAnimator = null
+        }
+    }
+
+    private fun hideMusicPerimeter() {
+        edgeAnimator?.cancel()
+        edgeAnimator = null
+        edgeView?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+        edgeView = null
+    }
+
+    private class MusicPerimeterView(context: Context) : View(context) {
+        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            color = 0xAA43E5D0.toInt()
+            strokeWidth = 8f * resources.displayMetrics.density
+            setShadowLayer(18f * resources.displayMetrics.density, 0f, 0f, 0xFF35E6D1.toInt())
+        }
+        private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            color = Color.WHITE
+            strokeWidth = 2.2f * resources.displayMetrics.density
+        }
+        var progress: Float = 0f
+        private val path = Path()
+        private val segment = Path()
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val inset = 9f * resources.displayMetrics.density
+            val radius = 25f * resources.displayMetrics.density
+            path.reset()
+            path.addRoundRect(
+                inset, inset, width - inset, height - inset,
+                radius, radius, Path.Direction.CW
+            )
+            val measure = PathMeasure(path, true)
+            val length = measure.length
+            if (length <= 0f) return
+            val start = progress * length
+            val segmentLength = length * .19f
+            segment.reset()
+            val end = start + segmentLength
+            if (end <= length) {
+                measure.getSegment(start, end, segment, true)
+            } else {
+                measure.getSegment(start, length, segment, true)
+                measure.getSegment(0f, end - length, segment, true)
+            }
+            canvas.drawPath(segment, glow)
+            canvas.drawPath(segment, core)
+        }
     }
 
     private fun showBubble() {
@@ -344,6 +450,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        musicHandler.removeCallbacks(musicPoll)
+        hideMusicPerimeter()
         hidePanel()
         bubble?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         bubble = null

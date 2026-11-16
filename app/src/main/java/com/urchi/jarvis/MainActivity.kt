@@ -37,6 +37,8 @@ import androidx.appcompat.app.AlertDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.label.ImageLabeling
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
@@ -416,7 +418,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
-                cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
+                cmd.contains("анализ фото") || cmd.contains("проанализируй фото") || cmd.contains("разбери фото") -> selectPhotoForAnalysis()\n                cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
                 cmd.contains("открой галерею") || cmd == "галерея" || cmd.contains("открой фото") -> openGallery()
                 cmd.contains("скачанные файлы") || cmd.contains("открой загрузки") -> openDownloads()
                 cmd.contains("уведомления приложения") || cmd.contains("настройки уведомлений") -> openNotificationSettings()
@@ -1521,7 +1523,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } else if (requestCode == 52) {
             if (Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)) enableOverlay()
             else respond("Разрешение на показ поверх окон не выдано. Плавающая кнопка не включена.")
-        } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
+        } else if (requestCode == 43 && resultCode == Activity.RESULT_OK) {\n            val uri = data?.data\n            if (uri != null) analyzePhoto(uri) else respond("Фотография не выбрана.")\n        } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
                 val name = uri.lastPathSegment ?: "выбранный файл"
@@ -1529,6 +1531,45 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, contentResolver.getType(uri) ?: "*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
                 catch (_: Exception) { respond("Файл выбран, но приложения для его открытия нет.") }
             }
+        }
+    }
+
+    private fun selectPhotoForAnalysis() {
+        try {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }, 43)
+            respond("Выбери фотографию. Я локально распознаю основные объекты на ней.")
+        } catch (_: Exception) {
+            respond("Не удалось открыть выбор фотографии.")
+        }
+    }
+
+    private fun analyzePhoto(uri: Uri) {
+        try {
+            val image = InputImage.fromFilePath(this, uri)
+            val labeler = ImageLabeling.getClient()
+            respond("Анализирую фотографию на устройстве...")
+            labeler.process(image)
+                .addOnSuccessListener { labels ->
+                    labeler.close()
+                    if (labels.isEmpty()) {
+                        respond("Не удалось уверенно распознать объекты на фотографии.")
+                        return@addOnSuccessListener
+                    }
+                    val top = labels.sortedByDescending { it.confidence }.take(8)
+                    val result = top.joinToString(", ") { it.text + " (" + (it.confidence * 100).toInt() + "%)" }
+                    output.text = "АНАЛИЗ ФОТО\n$result"
+                    say("На фотографии распознано: " + top.take(4).joinToString(", ") { it.text })
+                }
+                .addOnFailureListener {
+                    labeler.close()
+                    respond("Анализ фотографии не удался: " + (it.localizedMessage ?: "ошибка модели"))
+                }
+        } catch (e: Exception) {
+            respond("Не удалось прочитать фотографию: " + (e.localizedMessage ?: "ошибка файла"))
         }
     }
 

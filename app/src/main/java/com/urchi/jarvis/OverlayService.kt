@@ -343,6 +343,33 @@ class OverlayService : Service() {
         buttons.addView(voice, LinearLayout.LayoutParams(dp(92), dp(46)).apply { leftMargin = dp(8) })
         card.addView(buttons)
 
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        fun openMain(extra: String) {
+            val token = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getString("overlay_intent_token", null)
+            if (token.isNullOrBlank()) {
+                Toast.makeText(this@OverlayService, "Сеанс JARVIS истёк. Перезапусти плавающее окно.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            hidePanel()
+            val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(extra, true)
+                putExtra(MainActivity.EXTRA_OVERLAY_TOKEN, token)
+            }
+            startActivity(intent)
+        }
+        val chats = actionButton("ЧАТЫ", false) { openMain(MainActivity.EXTRA_OVERLAY_CHATS) }
+        val media = actionButton("МЕДИА", false) { openMain(MainActivity.EXTRA_OVERLAY_MEDIA) }
+        val settings = actionButton("НАСТРОЙКИ", false) { openMain(MainActivity.EXTRA_OVERLAY_SETTINGS) }
+        menu.addView(chats, LinearLayout.LayoutParams(0, dp(42), 1f))
+        menu.addView(media, LinearLayout.LayoutParams(0, dp(42), 1f).apply { leftMargin = dp(6) })
+        menu.addView(settings, LinearLayout.LayoutParams(0, dp(42), 1f).apply { leftMargin = dp(6) })
+        card.addView(menu)
+
         val screenWidth = resources.displayMetrics.widthPixels
         val params = WindowManager.LayoutParams(
             min(screenWidth - dp(28), dp(380)), WindowManager.LayoutParams.WRAP_CONTENT,

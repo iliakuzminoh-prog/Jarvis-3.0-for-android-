@@ -114,12 +114,20 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun handleOverlayIntent(intent: Intent?) {
         if (intent == null) return
-        val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)
+        val suppliedToken = intent.getStringExtra(EXTRA_OVERLAY_TOKEN)
+        val expectedToken = prefs.getString(PREF_OVERLAY_INTENT_TOKEN, null)
+        val authorized = !expectedToken.isNullOrBlank() && suppliedToken == expectedToken
+        val command = intent.getStringExtra(EXTRA_OVERLAY_COMMAND)?.take(1000)
         val voice = intent.getBooleanExtra(EXTRA_OVERLAY_VOICE, false)
-        if (!command.isNullOrBlank()) root.post { runCommand(command) }
-        else if (voice) root.post { startVoice() }
         intent.removeExtra(EXTRA_OVERLAY_COMMAND)
         intent.removeExtra(EXTRA_OVERLAY_VOICE)
+        intent.removeExtra(EXTRA_OVERLAY_TOKEN)
+        if (!authorized) return
+
+        // Rotate the one-time token to reject replayed or copied intents.
+        prefs.edit().putString(PREF_OVERLAY_INTENT_TOKEN, java.util.UUID.randomUUID().toString()).apply()
+        if (!command.isNullOrBlank()) root.post { runCommand(command) }
+        else if (voice) root.post { startVoice() }
     }
 
     private fun toggleOverlay() {
@@ -144,17 +152,23 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         try {
+            prefs.edit().putString(
+                PREF_OVERLAY_INTENT_TOKEN,
+                java.util.UUID.randomUUID().toString()
+            ).apply()
             val serviceIntent = Intent(this, OverlayService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
             else startService(serviceIntent)
             respond("Плавающая кнопка JARVIS включена. Дважды нажми на неё, чтобы открыть окно запроса.")
         } catch (_: Exception) {
+            prefs.edit().remove(PREF_OVERLAY_INTENT_TOKEN).apply()
             respond("Не удалось запустить плавающее окно. Проверь разрешения и уведомления JARVIS.")
         }
     }
 
     private fun disableOverlay() {
         stopService(Intent(this, OverlayService::class.java))
+        prefs.edit().remove(PREF_OVERLAY_INTENT_TOKEN).apply()
         respond("Плавающая кнопка JARVIS выключена.")
     }
 
@@ -1981,5 +1995,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
         const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
+        const val EXTRA_OVERLAY_TOKEN = "com.urchi.jarvis.OVERLAY_TOKEN"
+        private const val PREF_OVERLAY_INTENT_TOKEN = "overlay_intent_token"
     }
 }

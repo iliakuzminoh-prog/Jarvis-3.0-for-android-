@@ -59,7 +59,10 @@ object BrainKnowledge {
 
     fun answer(raw: String): String? {
         val q = normalize(raw)
-        facts.firstOrNull { fact -> fact.keys.any { q == normalize(it) || q.contains(normalize(it)) } }?.let { return it.answer }
+
+        // Базовая беседа должна работать без Google и без сети.
+        conversationAnswer(q)?.let { return it }
+        facts.firstOrNull { fact -> fact.keys.any { q == normalize(it) || q.contains(normalize(it)) } }?.let { return it }
         solveAppleProblem(q)?.let { return it }
         solveSimpleWordProblem(q)?.let { return it }
         if (q.matches(Regex(".*сколько.*яблок.*"))) {
@@ -67,6 +70,37 @@ object BrainKnowledge {
         }
         return null
     }
+
+    private fun conversationAnswer(q: String): String? {
+        if (q.isBlank()) return "Я слушаю."
+        if (matches(q, "привет", "здравствуй", "здарова", "добрый день", "доброе утро", "добрый вечер", "hello", "hi", "hey"))
+            return if (looksEnglish(q)) "Hello! I'm JARVIS. How can I help?" else "Привет! Я JARVIS. Чем могу помочь?"
+        if (matches(q, "как дела", "как ты", "how are you", "how's it going", "how are things"))
+            return if (looksEnglish(q)) "I'm working normally and ready to help." else "Работаю нормально и готов помочь."
+        if (matches(q, "спасибо", "благодарю", "thanks", "thank you"))
+            return if (looksEnglish(q)) "You're welcome." else "Пожалуйста."
+        if (matches(q, "кто ты", "что ты такое", "who are you", "what are you"))
+            return if (looksEnglish(q)) "I'm JARVIS, your local assistant." else "Я JARVIS, твой локальный помощник."
+        if (matches(q, "кто твой создатель", "кто тебя создал", "who created you", "who is your creator", "who made you"))
+            return if (looksEnglish(q))
+                "I was created for Ilya Kuzmin's JARVIS project. ChatGPT is not my creator; it is a separate AI service."
+            else
+                "Меня создали для проекта JARVIS Ильи Кузьмина. ChatGPT не является моим создателем — это отдельный ИИ-сервис."
+        if (matches(q, "что ты умеешь", "what can you do", "what are your abilities"))
+            return if (looksEnglish(q))
+                "I can talk with you, answer my built-in knowledge, solve simple problems, control supported apps, and use my built-in browser when needed."
+            else
+                "Я могу разговаривать с тобой, отвечать по встроенным знаниям, решать простые задачи, управлять поддерживаемыми приложениями и при необходимости использовать встроенный браузер."
+        if (matches(q, "до свидания", "пока", "bye", "goodbye"))
+            return if (looksEnglish(q)) "Goodbye!" else "Пока!"
+        return null
+    }
+
+    private fun matches(q: String, vararg phrases: String): Boolean =
+        phrases.any { p -> q == normalize(p) || q.contains(normalize(p)) }
+
+    private fun looksEnglish(q: String): Boolean =
+        Regex("\b(the|you|your|how|what|who|are|is|can|hello|hi|thanks|thank|created|creator|made)\b").containsMatchIn(q)
 
     private fun solveAppleProblem(q: String): String? {
         if (!q.contains("яблок")) return null

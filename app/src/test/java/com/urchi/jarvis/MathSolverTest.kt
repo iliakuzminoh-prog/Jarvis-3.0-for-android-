@@ -24,6 +24,11 @@ class MathSolverTest {
         assertTrue(answer?.contains("на ноль") == true)
     }
 
+    @Test fun calculatesPercentageOfNumber() {
+        val answer = MathSolver.solve("найди 15 процентов от 200")
+        assertTrue(answer?.contains("30") == true)
+    }
+
     @Test fun doesNotGuessUnsupportedNonlinearEquation() {
         assertTrue(MathSolver.solve("x * x = 9") == null)
     }

@@ -861,8 +861,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) {
             respond("Android сообщает, что VPN-туннель активен. Доступность конкретных сайтов этим не гарантируется.")
         } else {
-            respond("Android не показывает активный VPN-туннель. Пробую следующий установленный клиент, если он найден.")
-            nextVpn()
+            respond("Android не показывает активный VPN-туннель. Проверка ничего сама не запускает; для выбора клиента скажи «следующий VPN» или «включи VPN».")
         }
     }
 
@@ -1031,11 +1030,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             openSettings("android.settings.VPN_SETTINGS", "Выбери VPN-клиент в настройках Android.")
             return
         }
-        val nextIndex = vpnIndex + 1
-        if (nextIndex >= vpnCandidates.size) {
-            respond("Я уже перебрал все " + vpnCandidates.size + " найденных VPN-клиентов. Скажи «включи VPN», чтобы начать новый цикл.")
-            return
-        }
+        // «Следующий VPN» — циклический перебор уже найденного и перемешанного списка.
+        // После последнего клиента начинаем с первого, а не оставляем команду без действия.
+        val nextIndex = (vpnIndex + 1) % vpnCandidates.size
         vpnIndex = nextIndex
         val candidate = vpnCandidates[vpnIndex]
         try {

@@ -8,6 +8,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -54,18 +58,12 @@ class OverlayService : Service() {
     }
 
     private fun showBubble() {
-        val view = TextView(this).apply {
-            text = "J"
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(5, 24, 27))
-            background = sideBubbleBackground()
-            elevation = dp(8).toFloat()
+        val view = OrbBubbleView(this).apply {
             contentDescription = "JARVIS. Дважды нажми, чтобы открыть быстрый запрос"
+            elevation = dp(10).toFloat()
         }
         val params = WindowManager.LayoutParams(
-            dp(32), dp(42), overlayType(),
+            dp(58), dp(58), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -230,9 +228,32 @@ class OverlayService : Service() {
         }
     }
 
-    private fun sideBubbleBackground() = GradientDrawable().apply {
-        setColor(accent)
-        cornerRadii = floatArrayOf(0f, 0f, dp(25).toFloat(), dp(25).toFloat(), dp(25).toFloat(), dp(25).toFloat(), 0f, 0f)
+    private class OrbBubbleView(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var phase = 0f
+
+        override fun onDraw(canvas: Canvas) {
+            val cx = width / 2f
+            val cy = height / 2f
+            val r = min(width, height) * .43f
+            paint.shader = RadialGradient(
+                cx - r * .30f, cy - r * .36f, r * 1.3f,
+                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(23, 70, 86), Color.rgb(8, 18, 28)),
+                floatArrayOf(0f, .18f, .62f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(cx, cy, r, paint)
+            paint.shader = null
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = r * .07f
+            paint.color = Color.rgb(83, 215, 194)
+            canvas.drawArc(cx-r*1.08f, cy-r*1.08f, cx+r*1.08f, cy+r*1.08f, phase, 210f, false, paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.WHITE
+            canvas.drawCircle(cx-r*.34f, cy-r*.38f, r*.11f, paint)
+            phase = (phase + 2f) % 360f
+            postInvalidateDelayed(32L)
+        }
     }
 
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {

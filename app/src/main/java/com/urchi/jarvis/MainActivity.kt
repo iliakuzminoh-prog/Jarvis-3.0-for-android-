@@ -324,6 +324,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 return
             }
             when {
+                cmd.contains("следующий впн") || cmd.contains("следующий vpn") || cmd.contains("другой впн") || cmd.contains("другой vpn") -> nextVpn()
                 cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd == "адгуард" || cmd == "adguard" || cmd == "открой адгуард" || cmd == "запусти адгуард" -> openAdGuardVpn()
                 cmd == "открой ии" || cmd == "запусти ии" || cmd == "включи ии" || cmd == "открой ai" || cmd == "запусти ai" -> openAiRandom()
@@ -371,7 +372,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
                 cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
                 ((cmd.contains("youtube") || cmd.contains("ютуб")) && cmd.contains("музык")) -> openRequestedMusicApp("youtube")
-                cmd.contains("vk музыка") || cmd.contains("вк музыка") || cmd.contains("вкмузыка") -> openVkMusicExplicit()
+                cmd.contains("включи музыку в вк") || cmd.contains("включи в вк музыку") ||
+                    cmd.contains("запусти музыку в вк") || cmd.contains("запусти вк музыку") ||
+                    cmd.contains("вк музыка") || cmd.contains("vk музыка") || cmd.contains("вкмузыка") -> openVkMusicExplicit()
                 cmd.contains("приложение музыка") || cmd.contains("музыка от android") || cmd.contains("музыка от андроид") ||
                     cmd.contains("android music") || cmd.contains("музыкальный плеер") || cmd.contains("музыкальный проигрыватель") ||
                     cmd.contains("плеер музыки") || cmd == "открой музыку" || cmd == "запусти музыку" || cmd == "музыка" ->
@@ -784,7 +787,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openVpn() {
-        vpnCandidates = findVpnCandidates().shuffled()
+        val fresh = findVpnCandidates()
+        if (fresh.isEmpty()) {
+            vpnCandidates = emptyList()
+            vpnIndex = -1
+            nextVpn()
+            return
+        }
+        vpnCandidates = fresh.shuffled()
         vpnIndex = -1
         nextVpn()
     }
@@ -813,7 +823,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun nextVpn() {
-        if (vpnCandidates.isEmpty()) vpnCandidates = findVpnCandidates().shuffled()
+        if (vpnCandidates.isEmpty()) {
+            vpnCandidates = findVpnCandidates().shuffled()
+            vpnIndex = -1
+        }
         if (vpnCandidates.isEmpty()) {
             respond("Не нашёл известный VPN-клиент среди запускаемых приложений. Открываю системные настройки VPN.")
             openSettings("android.settings.VPN_SETTINGS", "Выбери VPN-клиент в настройках Android.")
@@ -821,16 +834,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         val nextIndex = vpnIndex + 1
         if (nextIndex >= vpnCandidates.size) {
-            respond("Других найденных VPN-клиентов нет. Я не могу проверить соединение автоматически без системного разрешения VPN.")
+            respond("Я уже перебрал все " + vpnCandidates.size + " найденных VPN-клиентов. Скажи «включи VPN», чтобы начать новый цикл.")
             return
         }
         vpnIndex = nextIndex
         val candidate = vpnCandidates[vpnIndex]
         try {
             launchApp(candidate.packageName)
-            respond("Запустил вариант ${vpnIndex + 1} из ${vpnCandidates.size}: ${candidate.label}. Подтверди подключение в самом приложении. Если оно не подключится, скажи «следующий VPN». Я не вижу надёжный статус соединения без отдельного системного VPN-сервиса.")
+            respond("Запустил вариант " + (vpnIndex + 1) + " из " + vpnCandidates.size + ": " + candidate.label + ". Для следующего скажи «следующий VPN».")
         } catch (_: Exception) {
-            respond("${candidate.label} не удалось открыть. Попробуй команду «следующий VPN» для следующего найденного приложения.")
+            respond(candidate.label + " не удалось открыть. Перехожу к следующему варианту.")
+            nextVpn()
         }
     }
 
@@ -913,7 +927,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (app != null) {
             try {
                 launchApp(app.packageName)
-                respond("Открываю VK Музыку.")
+                respond("Открываю VK Музыку и пытаюсь продолжить воспроизведение.")
+                window.decorView.postDelayed({
+                    sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+                }, 700L)
             } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
         } else {
             respond("Приложение VK Музыка не найдено.")

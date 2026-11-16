@@ -12,8 +12,11 @@ object MathSolver {
         operator fun times(o: Affine): Affine? =
             if (abs(a) < EPS) Affine(b * o.a, b * o.b)
             else if (abs(o.a) < EPS) Affine(a * o.b, b * o.b) else null
-        operator fun div(o: Affine): Affine? =
-            if (abs(o.a) < EPS && abs(o.b) > EPS) Affine(a / o.b, b / o.b) else null
+        operator fun div(o: Affine): Affine {
+            if (abs(o.a) > EPS) throw IllegalArgumentException("деление на выражение с переменной не поддерживается")
+            if (abs(o.b) < EPS) throw ArithmeticException("деление на ноль")
+            return Affine(a / o.b, b / o.b)
+        }
     }
 
     private class Parser(source: String) {
@@ -42,7 +45,7 @@ object MathSolver {
                 val op = if (explicit) take() else "*"
                 val r = power()
                 v = if (op == "*") v.times(r) ?: throw IllegalArgumentException("нелинейное умножение")
-                    else v.div(r) ?: throw ArithmeticException("деление на ноль или переменную")
+                    else v.div(r)
             }
             return v
         }

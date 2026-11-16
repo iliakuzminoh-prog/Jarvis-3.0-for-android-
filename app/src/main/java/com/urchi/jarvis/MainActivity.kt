@@ -371,8 +371,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
 
-        if (handleConversation(cmd)) return
-
         // Языковой слой сначала переводит естественную фразу в точную системную
         // команду. Поэтому «выруби музыку», «поставь будильник на семь тридцать»
         // и другие словоформы не должны уходить в браузер.
@@ -433,6 +431,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             respond(schoolAnswer)
             return
         }
+
+        // Общие реплики проверяем после математических и предметных знаний,
+        // чтобы «что такое фотосинтез?» не перехватывалось пустой заглушкой.
+        if (handleConversation(cmd)) return
 
         // Продолжение предыдущего вопроса.
         val contextual = resolveContextualQuestion(cmd)

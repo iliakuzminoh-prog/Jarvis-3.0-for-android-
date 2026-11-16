@@ -92,7 +92,7 @@ class OverlayService : Service() {
                     val dy = (event.rawY - downRawY).toInt()
                     if (abs(dx) > dp(7) || abs(dy) > dp(7)) moved = true
                     if (moved) {
-                        params.x = (startX - dx).coerceAtLeast(0)
+                        params.x = (startX + dx).coerceAtLeast(0)
                         params.y = (startY + dy).coerceAtLeast(0)
                         try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
                     }
@@ -118,6 +118,7 @@ class OverlayService : Service() {
             bubble = view
         } catch (_: Exception) {
             Toast.makeText(this, "Не удалось показать плавающее окно JARVIS", Toast.LENGTH_LONG).show()
+            isRunning = false
             stopSelf()
         }
     }

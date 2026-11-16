@@ -21,6 +21,11 @@ class RussianLanguageRegressionTest {
         assertTrue(RussianLanguageEngine.answer("hello")?.contains("Hello") == true)
     }
 
+    @Test fun recognizesGreetingWithPunctuation() {
+        assertTrue(RussianLanguageEngine.answer("привет!")?.contains("Привет") == true)
+        assertTrue(RussianLanguageEngine.answer("hello!")?.contains("Hello") == true)
+    }
+
     @Test fun ordinaryKnowledgeQuestionDoesNotBecomeWebSearchIntent() {
         assertTrue(SmartCommandEngine.resolve("что такое фотосинтез") == null)
     }

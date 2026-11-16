@@ -329,6 +329,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
         if (handleConversation(cmd)) return
+        val smartCommand = SmartCommandEngine.resolve(cmd)
+        if (smartCommand != null && smartCommand != cmd && !cmd.startsWith("научи команду ")) {
+            runCommand(smartCommand)
+            return
+        }
         val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) { respond(schoolAnswer); return }
         if (commandStack.size >= 8 || !commandStack.add(cmd)) {

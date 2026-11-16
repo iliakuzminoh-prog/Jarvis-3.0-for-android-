@@ -25,12 +25,7 @@
         android:usesCleartextTraffic="false">
         <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing" android:value="true" />
         <activity android:name=".BrowserActivity" android:exported="false" />
-        <activity android:name=".PermissionCenterActivity" android:exported="true" android:label="JARVIS — доступы">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".PermissionCenterActivity" android:exported="false" android:label="JARVIS — доступы" />
         <service
             android:name=".JarvisAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"

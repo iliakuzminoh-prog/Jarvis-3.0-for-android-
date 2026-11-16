@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.animation.ValueAnimator
 import android.graphics.Path
 import android.graphics.PathMeasure
@@ -46,11 +47,17 @@ class OverlayService : Service() {
     private var edgeView: MusicPerimeterView? = null
     private var edgeAnimator: ValueAnimator? = null
     private val musicHandler = Handler(Looper.getMainLooper())
+    private var lastThermalLevel = 0
+    private var lastMusicActive = false
     private val musicPoll = object : Runnable {
         override fun run() {
             val active = try { (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive } catch (_: Exception) { false }
-            if (active) showMusicPerimeter() else hideMusicPerimeter()
-            if (isRunning) musicHandler.postDelayed(this, 850L)
+            val thermal = readThermalLevel()
+            lastThermalLevel = thermal
+            lastMusicActive = active
+            if (active && thermal < 3) showMusicPerimeter(thermal) else hideMusicPerimeter()
+            // Poll slowly to reduce wakeups and CPU use on low-end phones.
+            if (isRunning) musicHandler.postDelayed(this, 2500L)
         }
     }
     private val panelColor = Color.rgb(16, 27, 38)
@@ -79,7 +86,15 @@ class OverlayService : Service() {
      * A non-touchable full-screen overlay. It only appears while Android reports
      * an active music stream, so the user's controls remain fully usable.
      */
-    private fun showMusicPerimeter() {
+    private fun readThermalLevel(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        return try {
+            val power = getSystemService(POWER_SERVICE) as PowerManager
+            power.currentThermalStatus
+        } catch (_: Exception) { 0 }
+    }
+
+    private fun showMusicPerimeter(thermal: Int) {
         if (edgeView != null || !Settings.canDrawOverlays(this)) return
         val view = MusicPerimeterView(this)
         val params = WindowManager.LayoutParams(
@@ -94,8 +109,10 @@ class OverlayService : Service() {
         try {
             windowManager.addView(view, params)
             edgeView = view
+            view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             edgeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 3600L
+                // Slow the decorative animation when Android reports elevated heat.
+                duration = if (thermal >= 2) 9000L else 6000L
                 repeatCount = ValueAnimator.INFINITE
                 addUpdateListener {
                     view.progress = it.animatedValue as Float

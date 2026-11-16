@@ -162,13 +162,12 @@ object RussianLanguageEngine {
 
     private fun replaceNumberWords(q: String): String {
         val all = ruNumbers + enNumbers
-        val tokens = Regex("""[\\p{L}]+|\\d+(?:[.,]\\d+)?|[^\\p{L}\\d]+""")
+        val tokens = Regex("""[\p{L}]+|\d+(?:[.,]\d+)?|[^\p{L}\d]+""")
             .findAll(q).map { it.value }.toList()
         val out = StringBuilder()
         var i = 0
         while (i < tokens.size) {
-            val first = all[tokens[i]]
-            if (first == null) {
+            if (all[tokens[i]] == null) {
                 out.append(tokens[i])
                 i++
                 continue

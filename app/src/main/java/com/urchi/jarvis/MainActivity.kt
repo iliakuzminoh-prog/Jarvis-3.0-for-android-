@@ -39,6 +39,7 @@ import java.util.Date
 import java.util.Locale
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
@@ -1556,7 +1557,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun analyzePhoto(uri: Uri) {
         try {
             val image = InputImage.fromFilePath(this, uri)
-            val labeler = ImageLabeling.getClient()
+            val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
             respond("Анализирую фотографию на устройстве...")
             labeler.process(image)
                 .addOnSuccessListener { labels ->

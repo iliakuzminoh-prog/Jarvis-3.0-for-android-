@@ -384,6 +384,27 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
 
+        // Медиакоманды разбираются до разговорных и школьных ответов.
+        // Это предотвращает ответ справочником на просьбу открыть видео/песню.
+        when (val media = MediaIntentRouter.resolve(original)) {
+            null -> Unit
+            else -> {
+                when (media.kind) {
+                    MediaIntentRouter.Kind.YOUTUBE_RECOMMENDATIONS -> openYoutubeRecommendations()
+                    MediaIntentRouter.Kind.VK_RECOMMENDATIONS -> openVkVideoRecommendations()
+                    MediaIntentRouter.Kind.YOUTUBE_SEARCH -> openYoutubeSearch(media.query)
+                    MediaIntentRouter.Kind.VK_VIDEO_SEARCH -> openVkVideoSearch(media.query)
+                    MediaIntentRouter.Kind.VK_MUSIC_SEARCH -> {
+                        if (hasInternetConnection()) openVkMusicSearch(media.query)
+                        else respond("Для поиска песни нужен интернет. Ничего не запускал.")
+                    }
+                    MediaIntentRouter.Kind.MUSIC_NAME_REQUIRED ->
+                        respond("Название песни не указано. Напиши исполнителя или название — я открою поиск именно по нему. Старое воспроизведение запускать не буду.")
+                }
+                return
+            }
+        }
+
         // Долговременная локальная память: явное сохранение, поиск и удаление записей.
         when {
             cmd.startsWith("запомни ") || cmd.startsWith("remember ") -> {
@@ -1186,10 +1207,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (app != null) {
             try {
                 launchApp(app.packageName)
-                respond("Открываю VK Музыку и пытаюсь продолжить воспроизведение.")
-                window.decorView.postDelayed({
-                    sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
-                }, 700L)
+                respond("Открыл VK Музыку. Самостоятельно выбирать и запускать случайный старый трек не буду — назови песню.")
             } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
         } else {
             respond("Приложение VK Музыка не найдено.")
@@ -1224,19 +1242,27 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openMusicSmart() {
-        if (hasInternetConnection()) {
-            val app = findVkMusicApp()
-            if (app != null) {
-                try {
-                    launchApp(app.packageName)
-                    respond("Открываю VK Музыку.")
-                } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
+        respond("Какую именно песню включить? Назови исполнителя или название. Я не буду выдавать старое приостановленное воспроизведение за новый трек.")
+    }
+
+    private fun openYoutubeRecommendations() {
+        try {
+            val launch = packageManager.getLaunchIntentForPackage("com.google.android.youtube")
+            if (launch != null) {
+                startActivity(launch)
+                respond("Открыл главную страницу YouTube с рекомендациями. Android не предоставляет JARVIS доступ к твоей персональной ленте и не позволяет надёжно выбрать и запустить конкретную рекомендацию без отдельной интеграции.")
             } else {
-                openRequestedMusicApp("local")
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")))
+                respond("Открыл YouTube в браузере. Автоматически выбрать видео из персональных рекомендаций здесь нельзя.")
             }
-        } else {
-            openLocalMusicPlayer()
-        }
+        } catch (_: Exception) { respond("Не удалось открыть YouTube. Видео не запускалось.") }
+    }
+
+    private fun openVkVideoRecommendations() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://vk.com/video")))
+            respond("Открыл раздел VK Видео. Персональные рекомендации и автозапуск конкретного ролика недоступны без авторизованной интеграции VK.")
+        } catch (_: Exception) { respond("Не удалось открыть VK Видео. Ролик не запускался.") }
     }
 
     private fun openLocalMusicPlayer() {

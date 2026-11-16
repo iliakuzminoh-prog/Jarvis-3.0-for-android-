@@ -402,6 +402,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     else "Подходящих записей в памяти не найдено.")
                 return
             }
+            cmd.startsWith("что ты помнишь про ") || cmd.startsWith("what do you remember about ") -> {
+                val query = if (cmd.startsWith("what do you remember about "))
+                    cmd.removePrefix("what do you remember about ").trim()
+                else cmd.removePrefix("что ты помнишь про ").trim()
+                val items = localMemory.search(query, 8)
+                val result = if (items.isEmpty()) "В памяти нет записей по запросу «$query»."
+                    else "Нашёл в памяти:\n" + items.joinToString("\n") { "• " + it.text }
+                respond(result)
+                return
+            }
             cmd in setOf("что ты помнишь", "покажи память", "what do you remember", "show memory") -> {
                 val items = localMemory.recent(12)
                 output.text = if (items.isEmpty()) "ЛОКАЛЬНАЯ ПАМЯТЬ\nПока нет сохранённых записей."

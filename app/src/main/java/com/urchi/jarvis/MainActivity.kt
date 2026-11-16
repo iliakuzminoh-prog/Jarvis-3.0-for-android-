@@ -403,8 +403,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             when {
                 cmd.contains("следующий впн") || cmd.contains("следующий vpn") || cmd.contains("другой впн") || cmd.contains("другой vpn") -> nextVpn()
-                cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
+                cmd.contains("проверь vpn") || cmd.contains("статус vpn") || cmd.contains("работает vpn") || cmd.contains("подключен vpn") || cmd.contains("подключён vpn") -> checkVpn()
                 cmd == "адгуард" || cmd == "adguard" || cmd == "открой адгуард" || cmd == "запусти адгуард" -> openAdGuardVpn()
+                cmd.contains("впн") || cmd.contains("vpn") -> openVpn()
                 cmd == "внутренний браузер" || cmd == "открой свой браузер" || cmd == "открой браузер jarvis" || cmd == "браузер jarvis" -> openBuiltInBrowser("")
                 cmd == "открой ии" || cmd == "запусти ии" || cmd == "включи ии" || cmd == "открой ai" || cmd == "запусти ai" -> openAiRandom()
                 cmd == "открой чат джпт" || cmd == "открой чатжпт" || cmd == "открой chatgpt" || cmd == "запусти чат джпт" || cmd == "запусти chatgpt" || cmd == "открой джпт" -> openChatGpt()
@@ -480,7 +481,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("спец возможности") || cmd.contains("специальные возможности") -> openSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS, "Открываю специальные возможности Android.")
                 cmd.contains("память телефона") || cmd.contains("хранилище") -> openSettings(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS, "Открываю настройки хранилища.")
                 cmd.contains("не беспокоить") -> openSettings(android.provider.Settings.ACTION_ZEN_MODE_PRIORITY_SETTINGS, "Открываю настройки режима Не беспокоить.")
-                cmd.contains("проверь vpn") || cmd.contains("статус vpn") || cmd.contains("работает vpn") || cmd.contains("подключен vpn") || cmd.contains("подключён vpn") -> checkVpn()
                 cmd.contains("есть ли интернет") || cmd.contains("статус сети") -> showNetwork()
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()

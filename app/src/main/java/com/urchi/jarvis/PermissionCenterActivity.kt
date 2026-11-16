@@ -64,6 +64,13 @@ class PermissionCenterActivity : AppCompatActivity() {
             granted(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA), 103)
         }
+        addPermission("Bluetooth", "Разрешение на чтение состояния и запрос подключения Bluetooth. Само включение подтверждается системным окном.", 
+            if (Build.VERSION.SDK_INT < 31 || granted(Manifest.permission.BLUETOOTH_CONNECT)) "Разрешено" else "Не разрешено",
+            Build.VERSION.SDK_INT < 31 || granted(Manifest.permission.BLUETOOTH_CONNECT)) {
+            if (Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) {
+                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 104)
+            }
+        }
         addPermission("Будильники", "Сейчас JARVIS передаёт создание будильника стандартному приложению «Часы». Специальный доступ точных будильников для этого не нужен.", "Через системные Часы", true) {
             runCatching { startActivity(Intent(android.provider.AlarmClock.ACTION_SET_ALARM)) }
                 .onFailure { Toast.makeText(this, "Не найдено приложение Часы.", Toast.LENGTH_SHORT).show() }

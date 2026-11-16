@@ -52,6 +52,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val commandStack = mutableSetOf<String>()
     private val prefs by lazy { getSharedPreferences("jarvis_local", Context.MODE_PRIVATE) }
 
+    // Краткосрочный контекст диалога. Это не "обучение" модели: он нужен,
+    // чтобы JARVIS понимал продолжения вроде «а кто он?» или «а теперь последний ролик».
+    private var lastTopic = ""
+    private var lastSearchQuery = ""
+    private var lastYoutubeQuery = ""
+    private var lastApp = ""
+    private var lastIntent = ""
+
     data class AppEntry(val label: String, val packageName: String, val icon: android.graphics.drawable.Drawable)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -325,17 +333,41 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun runCommand(raw: String) {
-        val cmd = raw.trim().lowercase(Locale.getDefault())
+        val original = raw.trim()
+        val cmd = original.lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
+
         if (handleConversation(cmd)) return
+
+        // Сначала пытаемся понять намерение естественной фразой.
+        // Важное правило: неизвестная фраза не должна превращаться в случайную
+        // команду из-за одного совпавшего слова.
         val smartCommand = SmartCommandEngine.resolve(cmd)
         if (smartCommand != null && smartCommand != cmd && !cmd.startsWith("научи команду ")) {
+            rememberIntent(smartCommand)
             runCommand(smartCommand)
             return
         }
+
+        // Знания проверяем до интернет-поиска.
         val schoolAnswer = SchoolKnowledge.answer(cmd)
-        if (schoolAnswer != null) { respond(schoolAnswer); return }
+        if (schoolAnswer != null) {
+            lastTopic = cmd
+            lastIntent = "knowledge"
+            respond(schoolAnswer)
+            return
+        }
+
+        // Продолжение предыдущего вопроса.
+        val contextual = resolveContextualQuestion(cmd)
+        if (contextual != null) {
+            lastSearchQuery = contextual
+            lastTopic = contextual
+            lastIntent = "search"
+            openWeb(contextual)
+            return
+        }
         if (commandStack.size >= 8 || !commandStack.add(cmd)) {
             respond("Обнаружен цикл или слишком глубокая цепочка команд. Остановил выполнение.")
             return
@@ -516,6 +548,55 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+
+    private fun rememberIntent(intent: String) {
+        lastIntent = intent
+        when {
+            intent.contains("youtube") || intent.contains("ютуб") -> lastApp = "youtube"
+            intent.contains("вк") -> lastApp = "vk"
+            intent.contains("telegram") || intent.contains("телеграм") -> lastApp = "telegram"
+            intent.contains("max") || intent.contains("макс") -> lastApp = "max"
+        }
+    }
+
+    /**
+     * Простейший слой контекстного рассуждения без притворства, что это LLM.
+     * Он связывает местоимения и продолжения с последней теме и не выполняет
+     * опасные/неоднозначные действия автоматически.
+     */
+    private fun resolveContextualQuestion(cmd: String): String? {
+        val followUp = listOf(
+            "а кто он", "а кто она", "а что это", "что это", "кто это",
+            "а где это", "где это", "а почему", "почему так", "а как",
+            "как это работает", "что насчет этого", "что насчет него",
+            "а это государство", "это государство", "это страна",
+            "а теперь", "ещё", "еще", "подробнее", "расскажи подробнее"
+        ).any { cmd == it || cmd.startsWith("$it ") }
+
+        if (!followUp) return null
+        if (lastSearchQuery.isBlank() && lastTopic.isBlank()) return null
+
+        val base = when {
+            lastSearchQuery.isNotBlank() -> lastSearchQuery
+            else -> lastTopic
+        }
+
+        return when {
+            cmd.contains("подробнее") || cmd == "ещё" || cmd == "еще" ->
+                "$base подробнее"
+            cmd.contains("последний ролик") || cmd.contains("последнее видео") ->
+                "$base последний ролик YouTube"
+            else -> "$base $cmd"
+        }.trim()
+    }
+
+    private fun rememberSearch(query: String, source: String = "web") {
+        val clean = query.trim()
+        if (clean.isBlank()) return
+        lastSearchQuery = clean
+        lastTopic = clean
+        lastIntent = source
+    }
 
     private fun teachCommand(raw: String) {
         val body = raw.substringAfter("научи команду").trim()
@@ -1111,6 +1192,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun launchApp(packageName: String) {
+        lastApp = packageName
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: throw ActivityNotFoundException()
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(launch)
@@ -1246,6 +1328,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openWeb(query: String) {
+        rememberSearch(query, "web")
         val url = if (query.isBlank()) "https://www.google.com/" else "https://www.google.com/search?q=" + Uri.encode(query)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         try {
@@ -1317,6 +1400,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun openYoutubeSearch(query: String) {
         val safeQuery = query.trim()
+        if (safeQuery.isNotBlank()) {
+            lastYoutubeQuery = safeQuery
+            lastSearchQuery = safeQuery
+            lastTopic = safeQuery
+            lastIntent = "youtube_search"
+        }
         if (safeQuery.isBlank()) {
             try {
                 startActivity(packageManager.getLaunchIntentForPackage("com.google.android.youtube") ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")))
@@ -1472,7 +1561,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
     }
 
-    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Также умею быстро открывать камеру, галерею и загрузки, настройки уведомлений, энергосбережения, экрана, даты и времени, языка, приложений по умолчанию и режима «Не беспокоить». Сложное свободное рассуждение без локальной языковой модели пока недоступно."
+    private fun helpText() = "Я умею: запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Также умею быстро открывать камеру, галерею и загрузки, настройки уведомлений, энергосбережения, экрана, даты и времени, языка, приложений по умолчанию и режима «Не беспокоить». Есть краткосрочный контекст диалога и разбор естественных команд. Полноценного свободного рассуждения уровня большой языковой модели пока нет: я не буду выдавать набор правил за настоящую нейросеть."
 
     private fun respond(message: String) {
         output.text = message

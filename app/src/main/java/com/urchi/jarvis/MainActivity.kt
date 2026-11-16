@@ -88,6 +88,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         intent.removeExtra(EXTRA_OVERLAY_VOICE)
     }
 
+    private fun toggleOverlay() {
+        if (OverlayService.isRunning) disableOverlay() else enableOverlay()
+    }
+
     private fun enableOverlay() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -181,7 +185,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         root.addView(networkLabel, matchWrap())
         addSpace(10)
-        root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { enableOverlay() }, matchWrap())
+        root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { toggleOverlay() }, matchWrap())
         addSpace(20)
 
         output = TextView(this).apply {
@@ -350,8 +354,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        // Знания проверяем до интернет-поиска.
-        val schoolAnswer = SchoolKnowledge.answer(cmd)
+        // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.\n        val coreAnswer = LanguageCore.answer(cmd)\n        if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }\n\n        // Знания проверяем до интернет-поиска.\n        val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {
             lastTopic = cmd
             lastIntent = "knowledge"
@@ -401,7 +404,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd == "открой клод" || cmd == "открой claude" || cmd == "запусти клод" || cmd == "запусти claude" -> openClaude()
                 cmd.contains("выключи плавающее окно") || cmd.contains("убери кнопку jarvis") -> disableOverlay()
                 cmd.contains("плавающее окно") || cmd.contains("включи плавающий jarvis") -> enableOverlay()
-                cmd.startsWith("научи команду ") -> teachCommand(raw)
+                cmd.startsWith("научи команду ") || cmd.startsWith("создай команду ") || cmd.startsWith("новая команда ") -> teachCommand(raw)
                 cmd.startsWith("удали команду ") -> deleteAlias(raw)
                 cmd.contains("мои команды") || cmd.contains("покажи команды") -> showAliases()
                 cmd.contains("очисти заметки") || cmd.contains("удали все заметки") -> confirmClearNotes()
@@ -438,7 +441,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("предыдущий трек") || cmd.contains("предыдущая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
                 cmd.contains("спасибо") || cmd.contains("благодар") -> respond("Пожалуйста. Чем ещё помочь?")
                 isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
-                cmd == "пауза" || cmd.contains("поставь музыку на паузу") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+                cmd == "пауза" || cmd.contains("поставь музыку на паузу") || cmd.contains("выключи музыку") || cmd.contains("останови музыку") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)\n                cmd.contains("музыка играет") || cmd.contains("играет музыка") || cmd.contains("сейчас играет") -> respond(if ((getSystemService(Context.AUDIO_SERVICE) as AudioManager).isMusicActive) "Сейчас Android сообщает, что медиапоток активен." else "Сейчас активный медиапоток не обнаружен.")
                 cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
                 ((cmd.contains("youtube") || cmd.contains("ютуб")) && cmd.contains("музык")) -> openRequestedMusicApp("youtube")
                 cmd.contains("включи музыку в вк") || cmd.contains("включи в вк музыку") ||
@@ -473,7 +476,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
                 cmd.contains("wi-fi") || cmd.contains("wifi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
-                cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
+                cmd.contains("включи bluetooth") || cmd.contains("включи блютуз") -> enableBluetooth()\n                cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
@@ -529,7 +532,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         else { respond("Не нашёл приложение «" + appTarget + "». Если это сайт, скажи «открой сайт " + appTarget + "», а для поиска — «найди " + appTarget + "».") }
                     }
                 }
-                cmd.contains("музык") || cmd.contains("music") -> openRequestedMusicApp("local")
+                cmd.contains("музык") || cmd.contains("music") -> openRequestedMusicCommand(raw)
                 cmd.contains("галере") || cmd.contains("фото") || cmd.contains("photos") -> openCategoryApp(listOf("галере", "фото", "photos", "gallery"))
                 cmd.contains("карты") || cmd.contains("навиг") || cmd.contains("maps") -> openCategoryApp(listOf("карты", "maps", "навига"))
                 cmd.contains("интернет") -> openWeb("")
@@ -599,7 +602,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun teachCommand(raw: String) {
-        val body = raw.substringAfter("научи команду").trim()
+        val body = raw.substringAfter("команду", raw).trim().removePrefix("=").trim()
         val parts = body.split("=", limit = 2)
         if (parts.size != 2 || parts[0].isBlank() || parts[1].isBlank()) {
             respond("Формат: научи команду открыть видео = открой YouTube")
@@ -1064,6 +1067,34 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun openRequestedMusicCommand(raw: String) {
+        val q = raw.lowercase(Locale.ROOT)
+            .replace("включи музыку", "")
+            .replace("включи песню", "")
+            .replace("включи трек", "")
+            .replace("найди песню", "")
+            .replace("найди трек", "")
+            .trim()
+        if (q.isBlank()) openMusicSmart()
+        else if (hasInternetConnection()) openVkMusicSearch(q)
+        else respond("Без интернета не могу найти новый трек по названию. Могу открыть локальную музыку.")
+    }
+
+    private fun openVkMusicSearch(query: String) {
+        val app = findVkMusicApp()
+        if (app != null) {
+            try {
+                launchApp(app.packageName)
+                respond("Открыл VK Музыку. Ищу трек: " + query + ".")
+            } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
+        } else {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://vk.com/audio?q=" + Uri.encode(query))))
+                respond("VK Музыка не найдена как приложение. Открыл поиск трека через VK.")
+            } catch (_: Exception) { respond("Не удалось открыть поиск музыки.") }
+        }
+    }
+
     private fun openMusicSmart() {
         if (hasInternetConnection()) {
             val app = findVkMusicApp()
@@ -1206,6 +1237,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             respond("Открыл настройки Jarvis. Здесь можно посмотреть и изменить выданные разрешения.")
         } catch (_: Exception) {
             respond("Не удалось открыть настройки разрешений Jarvis.")
+        }
+    }
+
+    private fun enableBluetooth() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 88)
+            respond("Android попросил разрешение Bluetooth. Выдай его, затем JARVIS повторит включение.")
+            return
+        }
+        try {
+            val adapter = (getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
+            if (adapter == null) { respond("На телефоне нет Bluetooth.") ; return }
+            if (adapter.isEnabled) { respond("Bluetooth уже включён.") ; return }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                respond("Android показал запрос на включение Bluetooth. Подтверди его.")
+            } else {
+                @Suppress("DEPRECATION")
+                startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                respond("Запросил включение Bluetooth.")
+            }
+        } catch (_: SecurityException) {
+            respond("Android не дал JARVIS доступ к Bluetooth. Разрешение можно выдать в настройках приложения.")
+        } catch (_: Exception) {
+            respond("Не удалось запросить включение Bluetooth.")
         }
     }
 
@@ -1445,8 +1502,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
         else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
-        else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
-        else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")
+        else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()\n        else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
+        else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")\n        else if (requestCode == 88) respond("Разрешение Bluetooth не выдано. Я не включал Bluetooth без разрешения.")
     }
 
     @Deprecated("Deprecated by Android; retained for broad device compatibility")

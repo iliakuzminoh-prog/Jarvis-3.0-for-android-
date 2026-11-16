@@ -45,6 +45,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var input: EditText
     private lateinit var output: TextView
     private lateinit var localMemory: MemoryStore
+    private lateinit var chats: ChatStore
+    private lateinit var permissionCenter: JarvisPermissionCenter
+    private val secretStore = JarvisSecretStore()
+    private var activeChatId = 0L
     private lateinit var languageButton: Button
     private var speechLocale = "ru-RU"
     private var pendingTorchOff = false
@@ -53,7 +57,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private data class VoiceOption(val title: String, val voiceName: String?, val pitch: Float, val rate: Float)
     private var voiceOptions: List<VoiceOption> = emptyList()
     private var selectedVoiceIndex = 0
-    private val accent = Color.rgb(83, 215, 194)
+    private var accent = Color.rgb(83, 215, 194)
     private val panel = Color.rgb(18, 29, 40)
     private val installedApps = mutableListOf<AppEntry>()
     private var vpnCandidates: List<AppEntry> = emptyList()
@@ -75,6 +79,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onCreate(savedInstanceState)
         speechLocale = prefs.getString("speech_locale", "ru-RU") ?: "ru-RU"
         localMemory = MemoryStore(this)
+        chats = ChatStore(this)
+        permissionCenter = JarvisPermissionCenter(this)
+        activeChatId = chats.getOrCreate().id
+        accent = prefs.getInt("ui_accent", Color.rgb(83, 215, 194))
         tts = TextToSpeech(this, this)
         buildUi()
         loadApps()
@@ -293,6 +301,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(button("ВЫБРАТЬ ГОЛОС • 5 ВАРИАНТОВ", false) { showVoicePicker() }, matchWrap())
         addSpace(8)
         root.addView(button("НАСТРОЙКИ МУЗЫКАЛЬНОГО ЭФФЕКТА", false) { showMusicCustomization() }, matchWrap())
+        addSpace(8)
+        val menuRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        menuRow.addView(button("ЧАТЫ", false) { showChats() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(4) })
+        menuRow.addView(button("МЕДИА", false) { showMediaStudio() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4); rightMargin = dp(4) })
+        menuRow.addView(button("НАСТРОЙКИ", false) { showJarvisSettings() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4) })
+        root.addView(menuRow, matchWrap())
         addSpace(18)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
@@ -415,6 +432,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun runCommand(raw: String) {
+        val rootCommand = commandStack.isEmpty()
+        if (rootCommand && raw.trim().isNotBlank() && ::chats.isInitialized) {
+            chats.add(activeChatId, "user", raw.trim())
+        }
         // Bound user-controlled input before normalization, routing, or logging.
         if (raw.length > MAX_COMMAND_LENGTH) {
             respond("Команда слишком длинная. Ограничение — 2000 символов.")
@@ -1883,6 +1904,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun helpText() = "Я умею: анализировать выбранные фотографии локальной моделью; показывать таблицу Менделеева и сведения об элементах; считать выражения со скобками, степенями и процентами и решать простые линейные уравнения; запускать установленные приложения; показывать иконки; управлять громкостью и воспроизведением; включать фонарик; проверять заряд, сведения об устройстве, свободное место и тип сети; копировать и отправлять текст через системное меню; открывать номеронабиратель и создавать черновик SMS без автоматической отправки; искать места на карте; открывать Wi-Fi, Bluetooth, VPN, экранные настройки, местоположение, специальные возможности, хранилище, режим Не беспокоить, файлы и календарь; создавать таймеры и будильники через системные часы; сохранять и удалять заметки с подтверждением; просматривать и удалять пользовательские команды; запоминать псевдонимы команд; выполнять простые цепочки действий через слово «потом»; искать в интернете; принимать голосовые команды. Работаю локально без API-ключей. Можно включить плавающую кнопку JARVIS и открыть компактное окно двойным нажатием по ней; для этого нужно разрешение «Поверх других окон». Скажи «выключи плавающее окно», чтобы убрать кнопку. Также умею быстро открывать камеру, галерею и загрузки, настройки уведомлений, энергосбережения, экрана, даты и времени, языка, приложений по умолчанию и режима «Не беспокоить». Есть краткосрочный контекст диалога и разбор естественных команд. Полноценного свободного рассуждения уровня большой языковой модели пока нет: я не буду выдавать набор правил за настоящую нейросеть."
 
     private fun respond(message: String) {
+        if (::chats.isInitialized && message.isNotBlank()) chats.add(activeChatId, "assistant", message)
+        output.text = message
+        say(message)
+    }
         output.text = message
         say(message)
     }
@@ -2029,6 +2054,210 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             canvas.drawCircle(cx-r*.92f, cy+r*.20f, r*.065f, paint)
         }
 
+    }
+
+    private fun showChats() {
+        val list = chats.list()
+        val labels = list.map { c -> "${c.title}  •  ${c.messages.size} сообщений" }.toTypedArray()
+        val builder = AlertDialog.Builder(this).setTitle("Чаты JARVIS")
+        builder.setItems(labels) { dialog, which ->
+            val chat = list[which]
+            activeChatId = chat.id
+            showChatActions(chat)
+            dialog.dismiss()
+        }
+        builder.setPositiveButton("Новый чат") { _, _ ->
+            val chat = chats.create()
+            activeChatId = chat.id
+            output.text = "НОВЫЙ ЧАТ
+Готов к работе."
+        }
+        builder.setNegativeButton("Закрыть", null)
+        if (list.isEmpty()) builder.setMessage("История пока пуста. Первый запрос создаст историю автоматически.")
+        builder.show()
+    }
+
+    private fun showChatActions(chat: ChatStore.Chat) {
+        val actions = arrayOf("Открыть историю", "Переименовать", "Удалить")
+        AlertDialog.Builder(this).setTitle(chat.title).setItems(actions) { _, which ->
+            when (which) {
+                0 -> {
+                    val text = chat.messages.takeLast(40).joinToString("
+
+") {
+                        if (it.role == "user") "ВЫ: ${it.text}" else "JARVIS: ${it.text}"
+                    }
+                    output.text = if (text.isBlank()) "Чат пуст." else text
+                    say(if (chat.messages.isEmpty()) "Чат пуст." else "История открыта.")
+                }
+                1 -> {
+                    val edit = EditText(this).apply { setText(chat.title); setSelection(length()) }
+                    AlertDialog.Builder(this).setTitle("Название чата").setView(edit)
+                        .setPositiveButton("Сохранить") { _, _ ->
+                            chats.rename(chat.id, edit.text.toString())
+                            if (activeChatId == chat.id) output.text = "Чат переименован."
+                        }.setNegativeButton("Отмена", null).show()
+                }
+                2 -> {
+                    chats.delete(chat.id)
+                    val replacement = chats.getOrCreate()
+                    activeChatId = replacement.id
+                    output.text = "Чат удалён."
+                }
+            }
+        }.show()
+    }
+
+    private fun showMediaStudio() {
+        val items = arrayOf(
+            "Сгенерировать изображение",
+            "Посмотреть изображение / анализировать фото",
+            "Открыть галерею"
+        )
+        AlertDialog.Builder(this).setTitle("Медиа JARVIS").setItems(items) { _, which ->
+            when (which) {
+                0 -> showImageGenerationDialog()
+                1 -> selectPhotoForAnalysis()
+                2 -> openGallery()
+            }
+        }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun showImageGenerationDialog() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0) }
+        val prompt = EditText(this).apply {
+            hint = "Например: футуристический город ночью, 3D, бирюзовый свет"
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+            minLines = 3
+            gravity = Gravity.TOP
+        }
+        box.addView(prompt, matchWrap())
+        val keyStatus = if (secretStore.get(this, "image_api_key").isNullOrBlank())
+            "Ключ генератора не настроен." else "Ключ генератора сохранён защищённо."
+        box.addView(TextView(this).apply {
+            text = keyStatus
+            setTextColor(Color.LTGRAY)
+            textSize = 11f
+            setPadding(0, dp(8), 0, 0)
+        }, matchWrap())
+        AlertDialog.Builder(this).setTitle("Генерация изображения").setView(box)
+            .setPositiveButton("Сгенерировать") { _, _ ->
+                val key = secretStore.get(this, "image_api_key")
+                if (key.isNullOrBlank()) {
+                    showImageKeyDialog()
+                } else {
+                    output.text = "ГЕНЕРАЦИЯ
+Отправляю запрос модели..."
+                    JarvisImageGenerator.generate(this, prompt.text.toString(), key) { result ->
+                        runOnUiThread {
+                            result.onSuccess { file -> showGeneratedImage(file) }
+                                .onFailure { e -> respond("Генерация изображения не удалась: ${e.localizedMessage ?: "ошибка провайдера"}") }
+                        }
+                    }
+                }
+            }
+            .setNeutralButton("Ключ API") { _, _ -> showImageKeyDialog() }
+            .setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showImageKeyDialog() {
+        val edit = EditText(this).apply {
+            hint = "sk_..."
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(secretStore.get(this@MainActivity, "image_api_key").orEmpty())
+        }
+        AlertDialog.Builder(this).setTitle("Ключ генератора изображений")
+            .setMessage("Ключ хранится в Android Keystore. JARVIS не отправляет его в обычные логи.")
+            .setView(edit)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val value = edit.text.toString().trim()
+                if (value.isBlank()) secretStore.clear(this, "image_api_key") else secretStore.put(this, "image_api_key", value)
+                respond(if (value.isBlank()) "Ключ удалён." else "Ключ сохранён в защищённом хранилище.")
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGeneratedImage(file: java.io.File) {
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+        if (bitmap == null) {
+            respond("Файл изображения получен, но Android не смог его декодировать.")
+            file.delete()
+            return
+        }
+        val image = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        AlertDialog.Builder(this).setTitle("JARVIS • изображение").setView(image)
+            .setPositiveButton("Готово") { _, _ ->
+                file.delete()
+                respond("Изображение показано. Временный файл удалён.")
+            }.show()
+    }
+
+    private fun showJarvisSettings() {
+        val themeNames = arrayOf("Бирюзовый", "Синий", "Фиолетовый", "Янтарный")
+        val themeColors = intArrayOf(
+            Color.rgb(83,215,194), Color.rgb(85,160,255),
+            Color.rgb(180,120,255), Color.rgb(255,184,77)
+        )
+        val items = arrayOf(
+            "Голос и скорость речи",
+            "Цвет интерфейса",
+            "Центр разрешений",
+            "Очистить историю чатов",
+            "Очистить неприкреплённую память",
+            "Сводка системы"
+        )
+        AlertDialog.Builder(this).setTitle("Настройки JARVIS").setItems(items) { _, which ->
+            when (which) {
+                0 -> showVoicePicker()
+                1 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
+                    .setSingleChoiceItems(themeNames, themeColors.indexOfFirst { it == accent }.coerceAtLeast(0)) { d, i ->
+                        prefs.edit().putInt("ui_accent", themeColors[i]).apply()
+                        d.dismiss()
+                        recreate()
+                    }.setNegativeButton("Отмена", null).show()
+                2 -> showPermissionCenter()
+                3 -> {
+                    AlertDialog.Builder(this).setTitle("Удалить все чаты?")
+                        .setMessage("Это удалит локальную историю диалогов.")
+                        .setPositiveButton("Удалить") { _, _ ->
+                            chats.list().forEach { chats.delete(it.id) }
+                            activeChatId = chats.getOrCreate().id
+                            respond("История чатов очищена.")
+                        }.setNegativeButton("Отмена", null).show()
+                }
+                4 -> {
+                    localMemory.clearUnpinned()
+                    respond("Неприкреплённые записи памяти удалены.")
+                }
+                5 -> {
+                    val msg = "Чатов: ${chats.list().size}
+Сообщений: ${chats.messageCount()}
+" +
+                        "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база
+" +
+                        "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}
+" +
+                        "Управление кликами: ${if (JarvisAccessibilityService.isEnabled(this)) "разрешено" else "не разрешено"}"
+                    output.text = "СИСТЕМА
+${msg}"
+                }
+            }
+        }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun showPermissionCenter() {
+        val items = permissionCenter.items(this)
+        val labels = items.map { "${if (it.granted) "✓" else "○"} ${it.title}
+${it.description}" }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("Центр разрешений")
+            .setItems(labels) { _, which -> items[which].action() }
+            .setMessage("JARVIS не включает специальные доступы скрытно. Android требует явного согласия пользователя.")
+            .setNegativeButton("Закрыть", null).show()
     }
 
     private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {

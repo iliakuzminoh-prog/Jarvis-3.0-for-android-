@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
     private lateinit var input: EditText
     private lateinit var output: TextView
+    private lateinit var languageButton: Button
+    private var speechLocale = "ru-RU"
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
     private val accent = Color.rgb(83, 215, 194)
@@ -67,6 +69,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        speechLocale = prefs.getString("speech_locale", "ru-RU") ?: "ru-RU"
         tts = TextToSpeech(this, this)
         buildUi()
         loadApps()
@@ -244,6 +247,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             background = roundedBackground(panel, 12)
         }
         row.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
+        languageButton = button(if (speechLocale == "ru-RU") "RU" else "EN", false) {
+            toggleSpeechLanguage()
+        }
+        row.addView(languageButton, LinearLayout.LayoutParams(dp(54), dp(52)).apply {
+            setMargins(dp(5), 0, dp(5), 0)
+        })
         val mic = button("МИК", false) { startVoice() }
         row.addView(mic, LinearLayout.LayoutParams(dp(64), dp(52)))
         root.addView(row, matchWrap())
@@ -1562,6 +1571,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return value.contains("youtube") || value.contains("ютуб") || app.packageName == "com.google.android.youtube"
     }
 
+    private fun toggleSpeechLanguage() {
+        speechLocale = if (speechLocale == "ru-RU") "en-US" else "ru-RU"
+        prefs.edit().putString("speech_locale", speechLocale).apply()
+        languageButton.text = if (speechLocale == "ru-RU") "RU" else "EN"
+        respond(if (speechLocale == "ru-RU") "Распознавание речи переключено на русский."
+            else "Speech recognition switched to English.")
+    }
+
     private fun startVoice() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 89)
@@ -1570,7 +1587,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechLocale)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Скажите команду")
         }
         try { startActivityForResult(intent, 41) }

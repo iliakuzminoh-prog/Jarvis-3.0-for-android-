@@ -461,6 +461,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Проверка орфографии запускается только при явном вопросе о написании.
+        // Это должно предшествовать общим разговорным шаблонам.
+        val spellingAnswer = SpellCheckEngine.answer(original)
+        if (spellingAnswer != null) {
+            lastTopic = original
+            lastIntent = "spelling"
+            respond(spellingAnswer)
+            return
+        }
+
         // Языковой слой: разговорные формулировки, русский/английский и простая арифметика.
         // Он работает до сети, поэтому базовые вопросы не уходят в браузер.
         val languageAnswer = RussianLanguageEngine.answer(cmd)

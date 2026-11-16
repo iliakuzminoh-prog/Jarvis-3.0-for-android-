@@ -34,6 +34,10 @@ jobs:
           set -o pipefail
           gradle --no-daemon :app:assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
 
+      - name: Run Android lint
+        if: success()
+        run: gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all
+
       - name: Check APK exists
         if: success()
         run: |

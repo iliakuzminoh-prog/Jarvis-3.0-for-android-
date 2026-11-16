@@ -17,13 +17,15 @@ object JarvisImageGenerator {
                 require(clean.isNotEmpty()) { "Пустой запрос" }
                 require(clean.length <= 1000) { "Запрос слишком длинный" }
                 val url = BASE_URL + "/image/" + Uri.encode(clean) +
-                    "?model=" + Uri.encode(model) +
-                    (if (!apiKey.isNullOrBlank()) "&key=" + Uri.encode(apiKey) else "")
+                    "?model=" + Uri.encode(model)
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15000
                     readTimeout = 90000
                     requestMethod = "GET"
                     setRequestProperty("Accept", "image/*")
+                    if (!apiKey.isNullOrBlank()) {
+                        setRequestProperty("Authorization", "Bearer " + apiKey.trim())
+                    }
                     instanceFollowRedirects = true
                 }
                 conn.connect()

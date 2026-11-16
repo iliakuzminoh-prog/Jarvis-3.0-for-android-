@@ -1549,6 +1549,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun startVoice() {
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 89)
+            respond("Для голосовой команды нужен доступ к микрофону. Android покажет системный запрос; без разрешения я не начинаю запись.")
+            return
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
@@ -1567,6 +1572,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
         else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")
         else if (requestCode == 88) respond("Разрешение Bluetooth не выдано. Я не включал Bluetooth без разрешения.")
+        else if (requestCode == 89 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startVoice()
+        else if (requestCode == 89) respond("Доступ к микрофону не выдан. Голосовая команда не запущена.")
     }
 
     @Deprecated("Deprecated by Android; retained for broad device compatibility")

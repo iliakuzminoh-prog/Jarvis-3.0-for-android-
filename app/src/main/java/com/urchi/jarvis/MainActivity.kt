@@ -651,6 +651,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
+                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
+                    cmd.contains("создай картинку") || cmd.contains("создай изображение") -> {
+                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+(картинку|изображение)\\s*"), "").trim()
+                    showImageGenerationDialog(prompt)
+                }
                 cmd.contains("анализ фото") || cmd.contains("проанализируй фото") || cmd.contains("разбери фото") -> selectPhotoForAnalysis()
                 cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
                 cmd.contains("открой галерею") || cmd == "галерея" || cmd.contains("открой фото") -> openGallery()
@@ -2136,13 +2141,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }.setNegativeButton("Закрыть", null).show()
     }
 
-    private fun showImageGenerationDialog() {
+    private fun showImageGenerationDialog(initialPrompt: String = "") {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(4), dp(8), 0)
         }
         val prompt = EditText(this).apply {
             hint = "Например: футуристический город ночью, 3D, бирюзовый свет"
+            setText(initialPrompt)
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
             minLines = 3

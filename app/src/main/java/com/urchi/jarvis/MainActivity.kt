@@ -1089,16 +1089,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun openVkMusicSearch(query: String) {
         val app = findVkMusicApp()
-        if (app != null) {
-            try {
-                launchApp(app.packageName)
-                respond("Открыл VK Музыку. Ищу трек: " + query + ".")
-            } catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
-        } else {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://vk.com/audio?q=" + Uri.encode(query))))
-                respond("VK Музыка не найдена как приложение. Открыл поиск трека через VK.")
-            } catch (_: Exception) { respond("Не удалось открыть поиск музыки.") }
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://vk.com/audio?q=" + Uri.encode(query)))
+            startActivity(intent)
+            respond("Открываю поиск VK Музыки: " + query + ".")
+        } catch (_: Exception) {
+            if (app != null) {
+                try { launchApp(app.packageName); respond("Открыл VK Музыку. Найди трек: " + query + ".") }
+                catch (_: Exception) { respond("Не удалось открыть VK Музыку.") }
+            } else respond("Не удалось открыть поиск музыки.")
         }
     }
 

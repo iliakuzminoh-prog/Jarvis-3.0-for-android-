@@ -271,6 +271,10 @@ class OverlayService : Service() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(accent)
         }
+        val panelOrb = OrbBubbleView(this, animate = true)
+        header.addView(panelOrb, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+            rightMargin = dp(8)
+        })
         header.addView(title, LinearLayout.LayoutParams(0, dp(40), 1f))
         val close = TextView(this).apply {
             text = "×"
@@ -374,7 +378,29 @@ class OverlayService : Service() {
         }
     }
 
-    private class OrbBubbleView(context: Context) : View(context) {
+    private class OrbBubbleView(context: Context, private val animate: Boolean = false) : View(context) {
+        private var orbitAnimator: ValueAnimator? = null
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            if (!animate || orbitAnimator != null) return
+            orbitAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+                duration = 12000L
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener {
+                    phase = it.animatedValue as Float
+                    // Animate only the open request panel, at a restrained redraw rate.
+                    postInvalidateDelayed(66L)
+                }
+                start()
+            }
+        }
+
+        override fun onDetachedFromWindow() {
+            orbitAnimator?.cancel()
+            orbitAnimator = null
+            super.onDetachedFromWindow()
+        }
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private var phase = 0f
 
@@ -436,7 +462,7 @@ class OverlayService : Service() {
                 r * .075f, paint
             )
 
-            // Keep the idle bubble static: continuous invalidation wastes GPU time and battery.
+            // The idle bubble remains static; only the visible request-panel orb animates.
         }
     }
 

@@ -2286,7 +2286,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun showPermissionCenter() {
         val items = permissionCenter.items(this)
-        val labels = items.map { "${if (it.granted) "✓" else "○"} ${it.title}\n${it.description}" }.toTypedArray()
+        val labels = items.map { item ->
+            val status = if (item.granted) "✓" else "□"
+            "$status ${item.title}\n${item.description}"
+        }.toTypedArray()
         AlertDialog.Builder(this).setTitle("Центр разрешений")
             .setItems(labels) { _, which -> items[which].action() }
             .setMessage("JARVIS не включает специальные доступы скрытно. Android требует явного согласия пользователя.")

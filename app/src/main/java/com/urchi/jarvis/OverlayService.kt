@@ -32,7 +32,7 @@ import android.widget.Toast
 import kotlin.math.abs
 import kotlin.math.min
 
-class OverlayService : Service() {
+class OverlayService : Service() {\n    companion object {\n        @Volatile var isRunning: Boolean = false\n            private set\n        private const val CHANNEL_ID = "jarvis_overlay"\n        private const val NOTIFICATION_ID = 7314\n    }
     private lateinit var windowManager: WindowManager
     private var bubble: View? = null
     private var panel: View? = null
@@ -310,7 +310,7 @@ class OverlayService : Service() {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
-        super.onDestroy()
+        isRunning = false\n        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

@@ -363,7 +363,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(appList, matchWrap())
         addSpace(20)
         val footer = TextView(this).apply {
-            text = "Работает локально • Без API-ключей • Действия требуют системных разрешений"
+            text = "Локальное управление • AI-медиа подключается отдельно • Действия требуют системных разрешений"
             textSize = 11f
             setTextColor(Color.GRAY)
             gravity = Gravity.CENTER

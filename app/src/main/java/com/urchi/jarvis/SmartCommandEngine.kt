@@ -1,5 +1,7 @@
 package com.urchi.jarvis
 
+import java.util.Locale
+
 /**
  * Локальный разбор естественных команд.
  *

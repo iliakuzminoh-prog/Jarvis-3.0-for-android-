@@ -93,6 +93,19 @@ object RussianLanguageEngine {
         val q = normalize(raw)
         if (q.isBlank()) return null
         arithmetic(q)?.let { return it }
+
+        // Не позволяем разговорным шаблонам перехватывать учебные вопросы,
+        // вычисления и просьбы объяснить предметную тему.
+        val taskSignals = listOf(
+            "что такое ", "что значит ", "объясни ", "расскажи про ", "почему ",
+            "реши ", "решить ", "задач", "посчитай ", "вычисли ", "найди ",
+            "формул", "таблиц", "элемент ", "падеж", "существительн", "глагол",
+            "фотосинтез", "атом", "клетк", "what is ", "what are ", "explain ",
+            "define ", "solve ", "calculate ", "find "
+        )
+        if (taskSignals.any { q.contains(it) } || q.any { it.isDigit() } ||
+            q.any { it in "+*/^=" }) return null
+
         val english = looksEnglish(q)
         val hit = intents.map { it to score(q, it.patterns) }
             .filter { it.second > 0 }.maxByOrNull { it.second }

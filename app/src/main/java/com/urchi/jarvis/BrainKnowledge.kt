@@ -62,7 +62,7 @@ object BrainKnowledge {
 
         // Базовая беседа должна работать без Google и без сети.
         conversationAnswer(q)?.let { return it }
-        facts.firstOrNull { fact -> fact.keys.any { q == normalize(it) || q.contains(normalize(it)) } }?.let { return it }
+        facts.firstOrNull { fact -> fact.keys.any { q == normalize(it) || q.contains(normalize(it)) } }?.let { return it.answer }
         solveAppleProblem(q)?.let { return it }
         solveSimpleWordProblem(q)?.let { return it }
         if (q.matches(Regex(".*сколько.*яблок.*"))) {

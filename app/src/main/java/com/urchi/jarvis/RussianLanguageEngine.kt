@@ -207,7 +207,7 @@ object RussianLanguageEngine {
 
     private fun normalize(value: String): String =
         value.lowercase(Locale.ROOT).replace('ё','е').replace('—','-')
-            .replace(Regex("[^\\p{L}\\p{N} +*/%=-]"), " ")
+            .replace(Regex("[^\\p{L}\\p{N} +*/%=\\-()^.,]"), " ")
             .replace(Regex("\\s+")," ").trim()
 
     private fun format(v: Double): String =

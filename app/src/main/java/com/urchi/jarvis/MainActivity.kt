@@ -632,9 +632,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val aliases = prefs.all.filterKeys { it.startsWith("alias_") }.toSortedMap()
         if (aliases.isEmpty()) { respond("Сохранённых пользовательских команд пока нет."); return }
         val lines = aliases.map { (key, value) -> "• ${key.removePrefix("alias_")} = $value" }
-        output.text = "МОИ КОМАНДЫ
-" + lines.joinToString("
-")
+        output.text = "МОИ КОМАНДЫ\n" + lines.joinToString("\n")
         say("Сохранено команд: ${aliases.size}. Список показан на экране.")
     }
 
@@ -670,10 +668,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showNotes() {
         val notes = prefs.all.filterKeys { it.startsWith("note_") }.toSortedMap()
         if (notes.isEmpty()) { respond("Сохранённых заметок пока нет."); return }
-        val text = notes.values.joinToString("
-") { it.toString() }
-        output.text = "ТВОИ ЗАМЕТКИ
-$text"
+        val text = notes.values.joinToString("\n") { it.toString() }
+        output.text = "ТВОИ ЗАМЕТКИ\n$text"
         say("У тебя ${notes.size} заметок. Они показаны на экране.")
     }
 

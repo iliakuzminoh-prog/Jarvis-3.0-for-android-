@@ -1752,7 +1752,20 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun say(message: String) {
-        if (ttsReady) tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+        if (!ttsReady) return
+        val latin = message.count { it in 'a'..'z' || it in 'A'..'Z' }
+        val cyrillic = message.count { it in 'а'..'я' || it in 'А'..'Я' || it == 'ё' || it == 'Ё' }
+        val locale = if (latin > cyrillic) Locale.ENGLISH else Locale("ru", "RU")
+        val status = tts.setLanguage(locale)
+        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
+            tts.setLanguage(Locale("ru", "RU"))
+        } else {
+            val voice = tts.voices
+                ?.filter { it.locale.language == locale.language && !it.isNetworkConnectionRequired }
+                ?.maxByOrNull { it.quality }
+            if (voice != null) tts.voice = voice
+        }
+        tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
     }
 
     private class InternetOrbView(context: Context) : View(context) {

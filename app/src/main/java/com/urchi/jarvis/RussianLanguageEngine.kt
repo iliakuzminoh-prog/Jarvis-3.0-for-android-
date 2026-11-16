@@ -147,6 +147,10 @@ object RussianLanguageEngine {
 
     private fun arithmetic(q: String): String? {
         val normalized = replaceNumberWords(q)
+            .replace(Regex("\\b(плюс|plus)\\b"), "+")
+            .replace(Regex("\\b(минус|minus)\\b"), "-")
+            .replace(Regex("\\b(умножить( на)?|умножь( на)?|times)\\b"), "*")
+            .replace(Regex("\\b(разделить на|делить на|divided by)\\b"), "/")
         val match = Regex("(?<!\\d)(\\d+(?:[.,]\\d+)?)[ ]*([+\\-×*÷/])[ ]*(\\d+(?:[.,]\\d+)?)(?!\\d)").find(normalized) ?: return null
         val a = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
         val b = match.groupValues[3].replace(',', '.').toDoubleOrNull() ?: return null

@@ -14,6 +14,16 @@ class MathSolverTest {
         assertTrue(answer?.contains("x = 2") == true)
     }
 
+    @Test fun solvesEquationSpokenInRussian() {
+        val answer = MathSolver.solve("реши задачу два икс плюс три равно семь")
+        assertTrue(answer?.contains("x = 2") == true)
+    }
+
+    @Test fun solvesEquationSpokenInEnglish() {
+        val answer = MathSolver.solve("solve equation two x plus three equals seven")
+        assertTrue(answer?.contains("x = 2") == true)
+    }
+
     @Test fun evaluatesParenthesesAndPrecedence() {
         val answer = MathSolver.solve("посчитай (2 + 3) * 4")
         assertTrue(answer?.contains("20") == true)

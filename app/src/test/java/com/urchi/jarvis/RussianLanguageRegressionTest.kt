@@ -8,7 +8,7 @@ class RussianLanguageRegressionTest {
     @Test fun answersSchoolDefinitionFromSchoolKnowledge() {
         val answer = SchoolKnowledge.answer("что такое фотосинтез?")
         assertNotNull(answer)
-        assertTrue(answer!!.contains("световую энергию"))
+        assertTrue(answer!!.contains("световой энергии"))
     }
 
     @Test fun answersPeriodicTableQuestionLocally() {

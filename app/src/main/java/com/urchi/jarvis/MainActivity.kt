@@ -354,7 +354,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.\n        val coreAnswer = LanguageCore.answer(cmd)\n        if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }\n\n        // Знания проверяем до интернет-поиска.\n        val schoolAnswer = SchoolKnowledge.answer(cmd)
+        // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.
+        val coreAnswer = LanguageCore.answer(cmd)\n        if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }
+
+        // Знания проверяем до интернет-поиска.\n        val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {
             lastTopic = cmd
             lastIntent = "knowledge"
@@ -441,7 +444,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("предыдущий трек") || cmd.contains("предыдущая песня") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
                 cmd.contains("спасибо") || cmd.contains("благодар") -> respond("Пожалуйста. Чем ещё помочь?")
                 isSimpleMath(cmd) -> respond("Ответ: " + evaluateSimpleMath(cmd))
-                cmd == "пауза" || cmd.contains("поставь музыку на паузу") || cmd.contains("выключи музыку") || cmd.contains("останови музыку") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)\n                cmd.contains("музыка играет") || cmd.contains("играет музыка") || cmd.contains("сейчас играет") -> respond(if ((getSystemService(Context.AUDIO_SERVICE) as AudioManager).isMusicActive) "Сейчас Android сообщает, что медиапоток активен." else "Сейчас активный медиапоток не обнаружен.")
+                cmd == "пауза" || cmd.contains("поставь музыку на паузу") || cmd.contains("выключи музыку") || cmd.contains("останови музыку") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+                cmd.contains("музыка играет") || cmd.contains("играет музыка") || cmd.contains("сейчас играет") -> respond(if ((getSystemService(Context.AUDIO_SERVICE) as AudioManager).isMusicActive) "Сейчас Android сообщает, что медиапоток активен." else "Сейчас активный медиапоток не обнаружен.")
                 cmd.contains("продолжи музыку") || cmd.contains("продолжить воспроизведение") -> sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
                 ((cmd.contains("youtube") || cmd.contains("ютуб")) && cmd.contains("музык")) -> openRequestedMusicApp("youtube")
                 cmd.contains("включи музыку в вк") || cmd.contains("включи в вк музыку") ||
@@ -476,7 +480,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd in listOf("помощь", "что ты умеешь", "команды") -> respond(helpText())
                 cmd.contains("следующий vpn") || cmd.contains("следующий впн") || cmd.contains("другой vpn") || cmd.contains("другой впн") -> nextVpn()
                 cmd.contains("wi-fi") || cmd.contains("wifi") || cmd.contains("вайфай") || cmd.contains("вай фай") -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Открываю настройки Wi-Fi.")
-                cmd.contains("включи bluetooth") || cmd.contains("включи блютуз") -> enableBluetooth()\n                cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
+                cmd.contains("включи bluetooth") || cmd.contains("включи блютуз") -> enableBluetooth()
+                cmd.contains("bluetooth") || cmd.contains("блютуз") -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Открываю настройки Bluetooth.")
                 cmd.contains("настройк") -> openSettings(android.provider.Settings.ACTION_SETTINGS, "Открываю настройки.")
                 cmd.contains("который час") || cmd == "время" || cmd.contains("сколько времени") -> respond("Сейчас ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.")
                 cmd.contains("какое сегодня число") || cmd.contains("дата") -> respond("Сегодня ${SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())}.")
@@ -1502,7 +1507,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
         else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
-        else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()\n        else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
+        else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
+        else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
         else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")\n        else if (requestCode == 88) respond("Разрешение Bluetooth не выдано. Я не включал Bluetooth без разрешения.")
     }
 

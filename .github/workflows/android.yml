@@ -43,10 +43,26 @@ jobs:
           gradle --no-daemon :app:assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
       - name: Run unit tests
         if: success()
-        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace --warning-mode all
+        run: |
+          for attempt in 1 2 3; do
+            gradle --no-daemon :app:testDebugUnitTest --stacktrace --warning-mode all && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              echo "Test dependency download failed; retrying ($attempt/3)."
+              sleep 15
+            fi
+          done
+          exit 1
       - name: Run Android lint
         if: success()
-        run: gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all
+        run: |
+          for attempt in 1 2 3; do
+            gradle --no-daemon :app:lintDebug --stacktrace --warning-mode all && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              echo "Lint dependency download failed; retrying ($attempt/3)."
+              sleep 15
+            fi
+          done
+          exit 1
       - name: Check APK exists
         if: success()
         run: |

@@ -80,6 +80,7 @@ object MathSolver {
     }
 
     fun solve(raw: String): String? {
+        if (raw.length > MAX_INPUT_LENGTH) return null
         val q = RussianLanguageEngine.normalizeSpokenNumbers(raw).lowercase(Locale.ROOT).replace('ё','е')
             .replace(Regex("^(реши|решить|посчитай|вычисли|найди|solve|calculate|find)\\s+(задачу|уравнение|пример|equation|problem|example|the)?\\s*"), "")
             .replace("сколько будет", "").replace("посчитай", "").replace("вычисли", "")
@@ -129,4 +130,5 @@ object MathSolver {
         return s.replace('.', ',')
     }
     private const val EPS = 1e-9
+    private const val MAX_INPUT_LENGTH = 256
 }

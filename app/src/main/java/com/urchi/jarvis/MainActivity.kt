@@ -40,11 +40,13 @@ import java.util.Locale
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import com.urchi.jarvis.v4.core.MemoryStore
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
     private lateinit var input: EditText
     private lateinit var output: TextView
+    private lateinit var localMemory: MemoryStore
     private lateinit var languageButton: Button
     private var speechLocale = "ru-RU"
     private lateinit var tts: TextToSpeech
@@ -70,6 +72,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         speechLocale = prefs.getString("speech_locale", "ru-RU") ?: "ru-RU"
+        localMemory = MemoryStore(this)
         tts = TextToSpeech(this, this)
         buildUi()
         loadApps()
@@ -384,6 +387,33 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val cmd = original.lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
+
+        // Долговременная локальная память: явное сохранение, поиск и удаление записей.
+        when {
+            cmd.startsWith("запомни ") || cmd.startsWith("remember ") -> {
+                val fact = original.substringAfter(" ").trim()
+                if (fact.isBlank()) respond("Укажи, что именно сохранить в памяти.")
+                else {
+                    localMemory.remember(fact)
+                    respond("Сохранил в памяти телефона: $fact")
+                }
+                return
+            }
+            cmd.startsWith("забудь ") || cmd.startsWith("forget ") -> {
+                val query = original.substringAfter(" ").trim()
+                val removed = localMemory.forget(query)
+                respond(if (removed > 0) "Удалил из памяти $removed записей."
+                    else "Подходящих записей в памяти не найдено.")
+                return
+            }
+            cmd in setOf("что ты помнишь", "покажи память", "what do you remember", "show memory") -> {
+                val items = localMemory.recent(12)
+                output.text = if (items.isEmpty()) "ЛОКАЛЬНАЯ ПАМЯТЬ\\nПока нет сохранённых записей."
+                    else "ЛОКАЛЬНАЯ ПАМЯТЬ\\n" + items.joinToString("\\n") { "• " + it.text }
+                say(if (items.isEmpty()) "Память пока пуста." else "В памяти сохранено записей: ${items.size}. Список показан на экране.")
+                return
+            }
+        }
 
         // Языковой слой сначала переводит естественную фразу в точную системную
         // команду. Поэтому «выруби музыку», «поставь будильник на семь тридцать»

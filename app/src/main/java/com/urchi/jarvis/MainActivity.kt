@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var localMemory: MemoryStore
     private lateinit var languageButton: Button
     private var speechLocale = "ru-RU"
+    private var pendingTorchOff = false
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
     private val accent = Color.rgb(83, 215, 194)
@@ -888,8 +889,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun toggleTorch(turnOff: Boolean) {
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            pendingTorchOff = turnOff
             requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 77)
-            respond("Android запросил разрешение камеры для фонарика. Если разрешишь, фонарик включится.")
+            respond("Android запросил разрешение камеры для фонарика. После разрешения выполню именно запрошенное действие.")
             return
         }
         try {
@@ -1622,7 +1624,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     @Deprecated("Deprecated by Android; retained for broad device compatibility")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleTorch(false)
+        if (requestCode == 77 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            val turnOff = pendingTorchOff
+            pendingTorchOff = false
+            toggleTorch(turnOff)
+        }
         else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
         else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
         else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()

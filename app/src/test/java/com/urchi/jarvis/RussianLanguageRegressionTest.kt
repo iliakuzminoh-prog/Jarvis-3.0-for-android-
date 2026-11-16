@@ -17,6 +17,12 @@ class RussianLanguageRegressionTest {
         assertTrue(answer!!.contains("118"))
     }
 
+    @Test fun answersEnglishSchoolQuestionInEnglish() {
+        val answer = SchoolKnowledge.answer("What is photosynthesis?")
+        assertNotNull(answer)
+        assertTrue(answer!!.startsWith("Photosynthesis"))
+    }
+
     @Test fun recognizesEnglishGreeting() {
         assertTrue(RussianLanguageEngine.answer("hello")?.contains("Hello") == true)
     }

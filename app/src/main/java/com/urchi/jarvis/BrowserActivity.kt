@@ -52,7 +52,10 @@ class BrowserActivity : Activity() {
             }
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val scheme = request.url.scheme?.lowercase()
+                    return scheme != "https" && scheme != "http"
+                }
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                     handler.cancel()
                 }
@@ -66,8 +69,8 @@ class BrowserActivity : Activity() {
     private fun navigate(value: String) {
         val q = value.trim()
         if (q.isBlank()) {
-            address.setText("https://www.google.com/")
-            web.loadUrl("https://www.google.com/")
+            address.setText("https://duckduckgo.com/")
+            web.loadUrl("https://duckduckgo.com/")
             return
         }
         val url = if (
@@ -76,7 +79,7 @@ class BrowserActivity : Activity() {
         ) {
             if (q.startsWith("http", true)) q else "https://$q"
         } else {
-            "https://www.google.com/search?q=" + android.net.Uri.encode(q)
+            "https://duckduckgo.com/?q=" + android.net.Uri.encode(q)
         }
         address.setText(url)
         web.loadUrl(url)

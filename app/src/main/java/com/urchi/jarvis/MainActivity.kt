@@ -16,7 +16,13 @@ import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
+import android.animation.ObjectAnimator
+import android.view.animation.LinearInterpolator
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -148,7 +154,25 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             gravity = Gravity.CENTER
         }
         root.addView(subtitle, matchWrap())
-        addSpace(14)
+        addSpace(10)
+
+        val orb = InternetOrbView(this).apply {
+            contentDescription = "Анимированный индикатор интернет-соединения"
+            startAnimation()
+        }
+        root.addView(orb, LinearLayout.LayoutParams(dp(126), dp(126)).apply {
+            gravity = Gravity.CENTER
+            topMargin = dp(4)
+            bottomMargin = dp(6)
+        })
+        val networkLabel = TextView(this).apply {
+            text = if (hasInternetConnection()) "ИНТЕРНЕТ • ОНЛАЙН" else "ИНТЕРНЕТ • ОФЛАЙН"
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(if (hasInternetConnection()) accent else Color.LTGRAY)
+        }
+        root.addView(networkLabel, matchWrap())
+        addSpace(10)
         root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { enableOverlay() }, matchWrap())
         addSpace(20)
 
@@ -1390,6 +1414,48 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun say(message: String) {
         if (ttsReady) tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+    }
+
+    private class InternetOrbView(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var angle = 0f
+        private val animator = ObjectAnimator.ofFloat(this, "rotation", 0f, 360f).apply {
+            duration = 4200L
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = LinearInterpolator()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val cx = width / 2f
+            val cy = height / 2f
+            val r = minOf(width, height) * 0.39f
+
+            paint.shader = RadialGradient(
+                cx - r * 0.32f, cy - r * 0.36f, r * 1.35f,
+                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(22, 66, 83), Color.rgb(8, 18, 28)),
+                floatArrayOf(0f, .16f, .58f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(cx, cy, r, paint)
+            paint.shader = null
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = r * .055f
+            paint.color = Color.rgb(83, 215, 194)
+            canvas.drawArc(cx - r * 1.12f, cy - r * 1.12f, cx + r * 1.12f, cy + r * 1.12f, angle, 210f, false, paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.WHITE
+            canvas.drawCircle(cx - r * .35f, cy - r * .38f, r * .10f, paint)
+        }
+
+        fun startAnimation() {
+            if (!animator.isStarted) animator.start()
+        }
+
+        override fun onDetachedFromWindow() {
+            animator.cancel()
+            super.onDetachedFromWindow()
+        }
     }
 
     private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {

@@ -1563,11 +1563,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     labeler.close()
                     if (labels.isEmpty()) {
                         respond("Не удалось уверенно распознать объекты на фотографии.")
-                        return@addOnSuccessListener
-                    }
-                    val top = labels.sortedByDescending { it.confidence }.take(8)
-                    val result = top.joinToString(", ") { it.text + " (" + (it.confidence * 100).toInt() + "%)" }
-                    output.text = "АНАЛИЗ ФОТО\n$result"
+                    } else {
+                        val top = labels.sortedByDescending { it.confidence }.take(8)
+                        val result = top.joinToString(", ") { it.text + " (" + (it.confidence * 100).toInt() + "%)" }
+                        output.text = "АНАЛИЗ ФОТО\n$result"
                     say("На фотографии распознано: " + top.take(4).joinToString(", ") { it.text })
                 }
                 .addOnFailureListener {

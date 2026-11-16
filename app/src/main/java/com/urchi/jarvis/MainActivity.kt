@@ -1523,7 +1523,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } else if (requestCode == 52) {
             if (Build.VERSION.SDK_INT < 23 || android.provider.Settings.canDrawOverlays(this)) enableOverlay()
             else respond("Разрешение на показ поверх окон не выдано. Плавающая кнопка не включена.")
-        } else if (requestCode == 43 && resultCode == Activity.RESULT_OK) {\n            val uri = data?.data\n            if (uri != null) analyzePhoto(uri) else respond("Фотография не выбрана.")\n        } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
+        } else if (requestCode == 43 && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) analyzePhoto(uri) else respond("Фотография не выбрана.")
+        } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
                 val name = uri.lastPathSegment ?: "выбранный файл"

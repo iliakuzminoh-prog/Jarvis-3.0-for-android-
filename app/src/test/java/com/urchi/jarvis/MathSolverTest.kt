@@ -46,4 +46,9 @@ class MathSolverTest {
     @Test fun doesNotLabelVariableDivisionAsZeroDivision() {
         assertTrue(MathSolver.solve("x / x") == null)
     }
+
+    @Test fun rejectsOversizedExpressionsBeforeParsing() {
+        val oversized = "1" + "+1".repeat(200)
+        assertTrue(MathSolver.solve(oversized) == null)
+    }
 }

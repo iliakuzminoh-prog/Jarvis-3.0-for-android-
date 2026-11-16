@@ -135,6 +135,7 @@ object SchoolKnowledge {
 
     private fun normalize(value: String): String = value.lowercase()
         .replace('ё', 'е')
+        .replace("'", "")
         .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()

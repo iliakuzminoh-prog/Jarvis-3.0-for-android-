@@ -87,6 +87,8 @@ object RussianLanguageEngine {
         return null
     }
 
+    fun normalizeSpokenNumbers(raw: String): String = replaceNumberWords(normalize(raw))
+
     fun answer(raw: String): String? {
         val q = normalize(raw)
         if (q.isBlank()) return null

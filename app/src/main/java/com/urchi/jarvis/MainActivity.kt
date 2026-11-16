@@ -447,6 +447,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             cmd.startsWith("запомни ") || cmd.startsWith("remember ") -> {
                 val fact = original.substringAfter(" ").trim()
                 if (fact.isBlank()) respond("Укажи, что именно сохранить в памяти.")
+                else if (fact.length > 1000) respond("Запись слишком длинная. Ограничение памяти JARVIS — 1000 символов на одну запись.")
                 else {
                     localMemory.remember(fact)
                     respond("Сохранил в памяти телефона: $fact")

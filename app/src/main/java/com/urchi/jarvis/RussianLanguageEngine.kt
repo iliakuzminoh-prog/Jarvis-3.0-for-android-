@@ -102,7 +102,7 @@ object RussianLanguageEngine {
                 q.startsWith(n + " ") || q.endsWith(" " + n) -> 60
                 q.contains(" $n ") -> 50
                 q.contains(n) -> 35
-                else -> tokenOverlap(q, n)
+                else -> stemOverlap(q, n)
             }
             if (s > best) best = s
         }

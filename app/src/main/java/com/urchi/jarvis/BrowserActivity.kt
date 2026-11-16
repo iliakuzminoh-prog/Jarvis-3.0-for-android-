@@ -54,7 +54,7 @@ class BrowserActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val scheme = request.url.scheme?.lowercase()
-                    return scheme != "https" && scheme != "http"
+                    return scheme != "https"
                 }
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                     handler.cancel()
@@ -73,13 +73,12 @@ class BrowserActivity : Activity() {
             web.loadUrl("https://duckduckgo.com/")
             return
         }
-        val url = if (
-            Regex("(?i)^(https?://|www\\.)").containsMatchIn(q) ||
-            Regex("(?i)^([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(q)
-        ) {
-            if (q.startsWith("http", true)) q else "https://$q"
-        } else {
-            "https://duckduckgo.com/?q=" + android.net.Uri.encode(q)
+        val url = when {
+            q.startsWith("https://", true) -> q
+            q.startsWith("http://", true) -> "https://" + q.substringAfter("://")
+            q.startsWith("www.", true) -> "https://$q"
+            Regex("(?i)^([a-z0-9-]+\\.)+[a-z]{2,}(/.*)?$").matches(q) -> "https://$q"
+            else -> "https://duckduckgo.com/?q=" + android.net.Uri.encode(q)
         }
         address.setText(url)
         web.loadUrl(url)

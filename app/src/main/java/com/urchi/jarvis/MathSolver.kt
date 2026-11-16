@@ -80,13 +80,15 @@ object MathSolver {
     }
 
     fun solve(raw: String): String? {
-        val q = raw.lowercase(Locale.ROOT).replace('ё','е')
+        val q = RussianLanguageEngine.normalizeSpokenNumbers(raw).lowercase(Locale.ROOT).replace('ё','е')
             .replace(Regex("^(реши|решить|посчитай|вычисли|найди)\\s+(задачу|уравнение|пример)?\\s*"), "")
             .replace("сколько будет", "").replace("посчитай", "").replace("вычисли", "")
             .replace("реши", "").replace("равно", "=")
             .replace("умножить на", "*").replace("разделить на", "/")
-            .replace("плюс", "+").replace("минус", "-").replace("умножить", "*")
-            .replace("делить на", "/").replace("икс", "x").replace("х", "x").trim()
+            .replace("плюс", "+").replace("plus", "+").replace("минус", "-").replace("minus", "-")
+            .replace("умножить", "*").replace("times", "*")
+            .replace("делить на", "/").replace("divided by", "/").replace("равно", "=").replace("equals", "=")
+            .replace("икс", "x").replace("х", "x").trim()
         if (q.isBlank() || (!q.any { it.isDigit() } && !q.contains('x'))) return null
         val percentMatch = Regex("""(\d+(?:[.,]\d+)?)\s*(?:%|процент(?:а|ов)?)\s*(?:от|of)\s*(\d+(?:[.,]\d+)?)""")
             .find(q)

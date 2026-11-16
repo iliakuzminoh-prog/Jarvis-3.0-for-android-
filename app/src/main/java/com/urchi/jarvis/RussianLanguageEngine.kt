@@ -31,7 +31,12 @@ object RussianLanguageEngine {
         "одиннадцать" to 11L,"двенадцать" to 12L,"тринадцать" to 13L,"четырнадцать" to 14L,
         "пятнадцать" to 15L,"шестнадцать" to 16L,"семнадцать" to 17L,"восемнадцать" to 18L,
         "девятнадцать" to 19L,"двадцать" to 20L,"тридцать" to 30L,"сорок" to 40L,
-        "пятьдесят" to 50L,"сто" to 100L,"тысяча" to 1000L,"тысячи" to 1000L,"тысяч" to 1000L
+        "пятьдесят" to 50L,"шестьдесят" to 60L,"семьдесят" to 70L,
+        "восемьдесят" to 80L,"девяносто" to 90L,"сто" to 100L,
+        "двести" to 200L,"триста" to 300L,"четыреста" to 400L,
+        "пятьсот" to 500L,"шестьсот" to 600L,"семьсот" to 700L,
+        "восемьсот" to 800L,"девятьсот" to 900L,
+        "тысяча" to 1000L,"тысячи" to 1000L,"тысяч" to 1000L
     )
     private val enNumbers = mapOf(
         "zero" to 0L,"one" to 1L,"two" to 2L,"three" to 3L,"four" to 4L,"five" to 5L,
@@ -156,12 +161,36 @@ object RussianLanguageEngine {
     }
 
     private fun replaceNumberWords(q: String): String {
-        var result = q
         val all = ruNumbers + enNumbers
-        all.entries.sortedByDescending { it.key.length }.forEach { (word, value) ->
-            result = result.replace(Regex("\\b" + Regex.escape(word) + "\\b"), value.toString())
+        val tokens = Regex("""[\\p{L}]+|\\d+(?:[.,]\\d+)?|[^\\p{L}\\d]+""")
+            .findAll(q).map { it.value }.toList()
+        val out = StringBuilder()
+        var i = 0
+        while (i < tokens.size) {
+            val first = all[tokens[i]]
+            if (first == null) {
+                out.append(tokens[i])
+                i++
+                continue
+            }
+            var total = 0L
+            var group = 0L
+            while (i < tokens.size) {
+                val value = all[tokens[i]] ?: break
+                when {
+                    value >= 1000L -> {
+                        total += maxOf(1L, group) * value
+                        group = 0L
+                    }
+                    value == 100L -> group = maxOf(1L, group) * value
+                    value >= 20L -> group += value
+                    else -> group += value
+                }
+                i++
+            }
+            out.append(total + group)
         }
-        return result
+        return out.toString()
     }
 
     private fun looksEnglish(q: String): Boolean =

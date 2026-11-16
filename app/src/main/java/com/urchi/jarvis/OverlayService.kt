@@ -51,7 +51,9 @@ class OverlayService : Service() {
         override fun run() {
             val active = try { (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive } catch (_: Exception) { false }
             val thermal = if (active) readThermalLevel() else 0
-            if (active && thermal < 3) showMusicPerimeter(thermal) else hideMusicPerimeter()
+            val effectEnabled = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+                .getBoolean("music_effect_enabled", true)
+            if (active && effectEnabled && thermal < 3) showMusicPerimeter(thermal) else hideMusicPerimeter()
             // Check less often while idle; thermal status is irrelevant without music animation.
             if (isRunning) musicHandler.postDelayed(this, if (active) 2500L else 5000L)
         }
@@ -74,6 +76,10 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_REFRESH_MUSIC_STYLE) {
+            hideMusicPerimeter()
+            return START_STICKY
+        }
         if (bubble == null) showBubble()
         return START_STICKY
     }
@@ -92,7 +98,10 @@ class OverlayService : Service() {
 
     private fun showMusicPerimeter(thermal: Int) {
         if (edgeView != null || !Settings.canDrawOverlays(this)) return
-        val view = MusicPerimeterView(this)
+        val musicPrefs = getSharedPreferences("jarvis_local", Context.MODE_PRIVATE)
+        val color = musicPrefs.getInt("music_effect_color", Color.rgb(67, 229, 208))
+        val speed = musicPrefs.getInt("music_effect_speed", 1).coerceIn(0, 2)
+        val view = MusicPerimeterView(this, color)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -108,7 +117,8 @@ class OverlayService : Service() {
             view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             edgeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
                 // Slow the decorative animation when Android reports elevated heat.
-                duration = if (thermal >= 2) 9000L else 6000L
+                val baseDuration = when (speed) { 0 -> 10000L; 2 -> 4000L; else -> 6000L }
+                duration = if (thermal >= 2) maxOf(baseDuration, 9000L) else baseDuration
                 repeatCount = ValueAnimator.INFINITE
                 addUpdateListener {
                     view.progress = it.animatedValue as Float
@@ -131,20 +141,20 @@ class OverlayService : Service() {
         edgeView = null
     }
 
-    private class MusicPerimeterView(context: Context) : View(context) {
+    private class MusicPerimeterView(context: Context, effectColor: Int) : View(context) {
         private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
             color = 0xAA43E5D0.toInt()
             strokeWidth = 8f * resources.displayMetrics.density
-            setShadowLayer(18f * resources.displayMetrics.density, 0f, 0f, 0xFF35E6D1.toInt())
+            setShadowLayer(18f * resources.displayMetrics.density, 0f, 0f, effectColor)
         }
         private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
-            color = Color.WHITE
+            color = effectColor
             strokeWidth = 2.2f * resources.displayMetrics.density
         }
         var progress: Float = 0f
@@ -497,6 +507,7 @@ class OverlayService : Service() {
         var isRunning: Boolean = false
             private set
 
+        const val ACTION_REFRESH_MUSIC_STYLE = "com.urchi.jarvis.REFRESH_MUSIC_STYLE"
         private const val CHANNEL_ID = "jarvis_overlay"
         private const val NOTIFICATION_ID = 7314
     }

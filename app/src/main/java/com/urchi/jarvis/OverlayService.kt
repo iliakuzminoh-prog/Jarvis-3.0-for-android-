@@ -47,17 +47,13 @@ class OverlayService : Service() {
     private var edgeView: MusicPerimeterView? = null
     private var edgeAnimator: ValueAnimator? = null
     private val musicHandler = Handler(Looper.getMainLooper())
-    private var lastThermalLevel = 0
-    private var lastMusicActive = false
     private val musicPoll = object : Runnable {
         override fun run() {
             val active = try { (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive } catch (_: Exception) { false }
-            val thermal = readThermalLevel()
-            lastThermalLevel = thermal
-            lastMusicActive = active
+            val thermal = if (active) readThermalLevel() else 0
             if (active && thermal < 3) showMusicPerimeter(thermal) else hideMusicPerimeter()
-            // Poll slowly to reduce wakeups and CPU use on low-end phones.
-            if (isRunning) musicHandler.postDelayed(this, 2500L)
+            // Check less often while idle; thermal status is irrelevant without music animation.
+            if (isRunning) musicHandler.postDelayed(this, if (active) 2500L else 5000L)
         }
     }
     private val panelColor = Color.rgb(16, 27, 38)

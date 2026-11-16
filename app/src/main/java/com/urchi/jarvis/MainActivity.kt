@@ -291,6 +291,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(button("ВЫПОЛНИТЬ КОМАНДУ", true) { runCommand(input.text.toString()) }, matchWrap())
         addSpace(8)
         root.addView(button("ВЫБРАТЬ ГОЛОС • 5 ВАРИАНТОВ", false) { showVoicePicker() }, matchWrap())
+        addSpace(8)
+        root.addView(button("НАСТРОЙКИ МУЗЫКАЛЬНОГО ЭФФЕКТА", false) { showMusicCustomization() }, matchWrap())
         addSpace(18)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
@@ -1905,6 +1907,68 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (selected != null) tts.voice = selected
         tts.setPitch(option.pitch)
         tts.setSpeechRate(option.rate)
+    }
+
+    private fun showMusicCustomization() {
+        val colors = listOf(
+            "Бирюзовый" to Color.rgb(67, 229, 208),
+            "Синий" to Color.rgb(75, 160, 255),
+            "Фиолетовый" to Color.rgb(174, 112, 255),
+            "Янтарный" to Color.rgb(255, 183, 77),
+            "Белый" to Color.WHITE
+        )
+        val speedLabels = arrayOf("Медленно", "Обычно", "Быстро")
+        val currentColor = prefs.getInt("music_effect_color", colors[0].second)
+        val currentColorIndex = colors.indexOfFirst { it.second == currentColor }.coerceAtLeast(0)
+        val currentSpeed = prefs.getInt("music_effect_speed", 1).coerceIn(0, 2)
+        val enabled = prefs.getBoolean("music_effect_enabled", true)
+
+        val options = arrayOf(
+            if (enabled) "✓ Музыкальная рамка включена" else "Музыкальная рамка выключена",
+            "Цвет: ${colors[currentColorIndex].first}",
+            "Скорость: ${speedLabels[currentSpeed]}"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Оформление музыкального режима")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        prefs.edit().putBoolean("music_effect_enabled", !enabled).apply()
+                        refreshMusicEffect()
+                        respond(if (enabled) "Музыкальная рамка выключена." else "Музыкальная рамка включена.")
+                    }
+                    1 -> AlertDialog.Builder(this)
+                        .setTitle("Цвет музыкальной рамки")
+                        .setSingleChoiceItems(colors.map { it.first }.toTypedArray(), currentColorIndex) { colorDialog, index ->
+                            prefs.edit().putInt("music_effect_color", colors[index].second).apply()
+                            refreshMusicEffect()
+                            colorDialog.dismiss()
+                            respond("Цвет музыкального эффекта изменён.")
+                        }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                    2 -> AlertDialog.Builder(this)
+                        .setTitle("Скорость анимации")
+                        .setSingleChoiceItems(speedLabels, currentSpeed) { speedDialog, index ->
+                            prefs.edit().putInt("music_effect_speed", index).apply()
+                            refreshMusicEffect()
+                            speedDialog.dismiss()
+                            respond("Скорость музыкальной анимации изменена.")
+                        }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
+    }
+
+    private fun refreshMusicEffect() {
+        if (OverlayService.isRunning) {
+            try { startService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_REFRESH_MUSIC_STYLE)) }
+            catch (_: Exception) { }
+        }
     }
 
     private fun showVoicePicker() {

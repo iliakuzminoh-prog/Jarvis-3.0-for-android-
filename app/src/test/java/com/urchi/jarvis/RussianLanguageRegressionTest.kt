@@ -24,4 +24,12 @@ class RussianLanguageRegressionTest {
     @Test fun ordinaryKnowledgeQuestionDoesNotBecomeWebSearchIntent() {
         assertTrue(SmartCommandEngine.resolve("что такое фотосинтез") == null)
     }
+
+    @Test fun combinesRussianTensAndUnitsInSpokenArithmetic() {
+        assertTrue(RussianLanguageEngine.answer("двадцать три плюс пять")?.contains("28") == true)
+    }
+
+    @Test fun combinesEnglishTensAndUnitsInSpokenArithmetic() {
+        assertTrue(RussianLanguageEngine.answer("twenty three plus five")?.contains("28") == true)
+    }
 }

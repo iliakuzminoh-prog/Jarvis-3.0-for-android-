@@ -27,4 +27,8 @@ class MathSolverTest {
     @Test fun doesNotGuessUnsupportedNonlinearEquation() {
         assertTrue(MathSolver.solve("x * x = 9") == null)
     }
+
+    @Test fun doesNotLabelVariableDivisionAsZeroDivision() {
+        assertTrue(MathSolver.solve("x / x") == null)
+    }
 }

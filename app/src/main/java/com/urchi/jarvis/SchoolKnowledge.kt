@@ -167,7 +167,9 @@ object SchoolKnowledge {
 
     fun answer(command: String): String? {
         val q = normalize(command)
-        facts.entries.firstOrNull { q.contains(it.key) || matchesPhraseByStem(q, it.key) }?.let { return it.value }
+        val exactMatch = facts.entries.filter { q.contains(it.key) }.maxByOrNull { it.key.length }
+        val inflectedMatch = facts.entries.filter { matchesPhraseByStem(q, it.key) }.maxByOrNull { it.key.length }
+        (exactMatch ?: inflectedMatch)?.let { return it.value }
         val prefixes = listOf("что такое ", "что значит ", "объясни ", "расскажи про ", "что означает ", "определи ",
             "what is ", "what are ", "define ", "explain ", "tell me about ")
         val topic = prefixes.firstNotNullOfOrNull { p -> if (q.startsWith(p)) q.removePrefix(p).trim() else null } ?: return null

@@ -26,8 +26,19 @@ jobs:
           packages: platform-tools
       - name: Install Android platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Clean
+        run: gradle --no-daemon clean
+
       - name: Build debug APK
-        run: set -o pipefail; gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
+
+      - name: Check APK exists
+        if: success()
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
       - name: Verify APK signature
         if: success()
         run: "$ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk"

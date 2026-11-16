@@ -357,9 +357,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.
-        val coreAnswer = LanguageCore.answer(cmd)\n        if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }
+        val coreAnswer = LanguageCore.answer(cmd)
+        if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }
 
-        // Знания проверяем до интернет-поиска.\n        val schoolAnswer = SchoolKnowledge.answer(cmd)
+        // Знания проверяем до интернет-поиска.
+        val schoolAnswer = SchoolKnowledge.answer(cmd)
         if (schoolAnswer != null) {
             lastTopic = cmd
             lastIntent = "knowledge"
@@ -418,7 +420,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
-                cmd.contains("анализ фото") || cmd.contains("проанализируй фото") || cmd.contains("разбери фото") -> selectPhotoForAnalysis()\n                cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
+                cmd.contains("анализ фото") || cmd.contains("проанализируй фото") || cmd.contains("разбери фото") -> selectPhotoForAnalysis()
+                cmd.contains("открой камеру") || cmd == "камера" || cmd.contains("запусти камеру") -> openCamera()
                 cmd.contains("открой галерею") || cmd == "галерея" || cmd.contains("открой фото") -> openGallery()
                 cmd.contains("скачанные файлы") || cmd.contains("открой загрузки") -> openDownloads()
                 cmd.contains("уведомления приложения") || cmd.contains("настройки уведомлений") -> openNotificationSettings()
@@ -629,7 +632,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val aliases = prefs.all.filterKeys { it.startsWith("alias_") }.toSortedMap()
         if (aliases.isEmpty()) { respond("Сохранённых пользовательских команд пока нет."); return }
         val lines = aliases.map { (key, value) -> "• ${key.removePrefix("alias_")} = $value" }
-        output.text = "МОИ КОМАНДЫ\n" + lines.joinToString("\n")
+        output.text = "МОИ КОМАНДЫ
+" + lines.joinToString("
+")
         say("Сохранено команд: ${aliases.size}. Список показан на экране.")
     }
 
@@ -665,8 +670,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showNotes() {
         val notes = prefs.all.filterKeys { it.startsWith("note_") }.toSortedMap()
         if (notes.isEmpty()) { respond("Сохранённых заметок пока нет."); return }
-        val text = notes.values.joinToString("\n") { it.toString() }
-        output.text = "ТВОИ ЗАМЕТКИ\n$text"
+        val text = notes.values.joinToString("
+") { it.toString() }
+        output.text = "ТВОИ ЗАМЕТКИ
+$text"
         say("У тебя ${notes.size} заметок. Они показаны на экране.")
     }
 
@@ -1510,7 +1517,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         else if (requestCode == 77) respond("Разрешение не выдано. Фонарик не включён.")
         else if (requestCode == 53 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableOverlay()
         else if (requestCode == 88 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) enableBluetooth()
-        else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")\n        else if (requestCode == 88) respond("Разрешение Bluetooth не выдано. Я не включал Bluetooth без разрешения.")
+        else if (requestCode == 53) respond("Без уведомления плавающий режим не запущен. Разрешение можно выдать в настройках JARVIS.")
+        else if (requestCode == 88) respond("Разрешение Bluetooth не выдано. Я не включал Bluetooth без разрешения.")
     }
 
     @Deprecated("Deprecated by Android; retained for broad device compatibility")
@@ -1563,7 +1571,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     }
                     val top = labels.sortedByDescending { it.confidence }.take(8)
                     val result = top.joinToString(", ") { it.text + " (" + (it.confidence * 100).toInt() + "%)" }
-                    output.text = "АНАЛИЗ ФОТО\n$result"
+                    output.text = "АНАЛИЗ ФОТО
+$result"
                     say("На фотографии распознано: " + top.take(4).joinToString(", ") { it.text })
                 }
                 .addOnFailureListener {

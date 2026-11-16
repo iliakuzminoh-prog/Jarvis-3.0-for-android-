@@ -68,11 +68,35 @@ object RussianLanguageEngine {
         return best
     }
 
-    private fun tokenOverlap(a: String, b: String): Int {
-        val aa = a.split(" ").filter { it.length >= 3 }.toSet()
-        val bb = b.split(" ").filter { it.length >= 3 }.toSet()
+    private fun stemOverlap(a: String, b: String): Int {
+        val aa = a.split(" ").filter { it.length >= 3 }.map(::stem).toSet()
+        val bb = b.split(" ").filter { it.length >= 3 }.map(::stem).toSet()
         if (aa.isEmpty() || bb.isEmpty()) return 0
-        return aa.intersect(bb).size * 3
+        return aa.intersect(bb).size * 4
+    }
+
+    // Упрощённое приведение словоформ. Это позволяет понимать, например,
+    // «создателя», «создателем», «создатели» рядом с «создатель» без
+    // огромного словаря всех падежей.
+    private fun stem(word: String): String {
+        var w = word.lowercase(Locale.ROOT).replace('ё', 'е')
+        val endings = if (w.all { it in 'а'..'я' }) {
+            listOf(
+                "иями","ями","ами","ого","ему","ому","ими","ыми","ее","ие","ые",
+                "ое","ей","ий","ый","ой","ем","ом","им","ым","ах","ях","ам","ям",
+                "ов","ев","ей","ою","ею","ую","юю","ью","ия","ие","ии","ию",
+                "иям","иях","и","ы","а","я","у","ю","е","о","ь"
+            )
+        } else {
+            listOf("selves","ingly","edly","ation","ments","ment","ing","ers","es","ed","er","s")
+        }
+        for (ending in endings.sortedByDescending { it.length }) {
+            if (w.length > ending.length + 2 && w.endsWith(ending)) {
+                w = w.dropLast(ending.length)
+                break
+            }
+        }
+        return w
     }
 
     private fun arithmetic(q: String): String? {

@@ -23,7 +23,7 @@ object MediaIntentRouter {
         if (q.isBlank()) return null
 
         val asksVideo = q.contains("видео") || q.contains("ролик") || q.contains("видеоролик")
-        val asksRecommendation = q.contains("рекомендац") || q.contains("рекомендац") ||
+        val asksRecommendation = q.contains("рекомендац") || q.contains("recommend") ||
             q.contains("любое видео") || q.contains("любой ролик") ||
             q.contains("что-нибудь посмотреть") || q.contains("что нибудь посмотреть") ||
             q.contains("любое из")

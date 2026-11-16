@@ -46,7 +46,7 @@ class PermissionManager(private val context: Context) {
             "bluetooth", "Bluetooth",
             "Нужно только для команд, связанных с Bluetooth.",
             if (Build.VERSION.SDK_INT >= 31)
-                listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+                listOf(Manifest.permission.BLUETOOTH_CONNECT)
             else emptyList()
         )
         val OVERLAY = Capability(

@@ -37,8 +37,9 @@ object MathSolver {
         }
         private fun term(): Affine {
             var v = power()
-            while (peek("*") || peek("/")) {
-                val op = take()
+            while (peek("*") || peek("/") || peek("x") || peek("(")) {
+                val explicit = peek("*") || peek("/")
+                val op = if (explicit) take() else "*"
                 val r = power()
                 v = if (op == "*") v.times(r) ?: throw IllegalArgumentException("нелинейное умножение")
                     else v.div(r) ?: throw ArithmeticException("деление на ноль или переменную")

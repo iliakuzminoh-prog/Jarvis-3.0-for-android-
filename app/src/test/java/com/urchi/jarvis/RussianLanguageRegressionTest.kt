@@ -5,8 +5,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RussianLanguageRegressionTest {
-    @Test fun answersSchoolDefinitionBeforeGenericConversationFallback() {
-        val answer = LanguageCore.answer("что такое фотосинтез?")
+    @Test fun answersSchoolDefinitionFromSchoolKnowledge() {
+        val answer = SchoolKnowledge.answer("что такое фотосинтез?")
         assertNotNull(answer)
         assertTrue(answer!!.contains("световую энергию"))
     }

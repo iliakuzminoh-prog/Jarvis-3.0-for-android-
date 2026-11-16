@@ -204,7 +204,9 @@ object RussianLanguageEngine {
             .containsMatchIn(q) || q.count { it in 'a'..'z' } > q.count { it in 'а'..'я' } * 2
 
     private fun normalize(value: String): String =
-        value.lowercase(Locale.ROOT).replace('ё','е').replace('—','-').replace(Regex("\\s+")," ").trim()
+        value.lowercase(Locale.ROOT).replace('ё','е').replace('—','-')
+            .replace(Regex("[^\\p{L}\\p{N} +*/%=-]"), " ")
+            .replace(Regex("\\s+")," ").trim()
 
     private fun format(v: Double): String =
         if (abs(v - v.toLong()) < 1e-10) v.toLong().toString()

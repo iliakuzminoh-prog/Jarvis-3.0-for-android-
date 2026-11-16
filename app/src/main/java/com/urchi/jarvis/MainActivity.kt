@@ -214,6 +214,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         root.addView(networkLabel, matchWrap())
         addSpace(10)
         root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { toggleOverlay() }, matchWrap())
+        root.addView(button("ЦЕНТР ДОСТУПОВ", false) { startActivity(Intent(this, PermissionCenterActivity::class.java)) }, matchWrap())
         addSpace(20)
 
         output = TextView(this).apply {
@@ -396,7 +397,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val languageAnswer = RussianLanguageEngine.answer(cmd)
         if (languageAnswer != null) {
             lastTopic = cmd
-            lastIntent = "language"            respond(languageAnswer)
+            lastIntent = "language"
+            respond(languageAnswer)
             return
         }
 
@@ -824,7 +826,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         try {
             val stats = StatFs(filesDir.absolutePath)
             val freeMb = stats.availableBytes / (1024L * 1024L)
-            val totalMb = stats.totalBytes / (1024L * 1024L)            respond("Во внутреннем разделе данных доступно примерно $freeMb МБ из $totalMb МБ. Это не полный отчёт обо всех разделах телефона.")
+            val totalMb = stats.totalBytes / (1024L * 1024L)
+            respond("Во внутреннем разделе данных доступно примерно $freeMb МБ из $totalMb МБ. Это не полный отчёт обо всех разделах телефона.")
         } catch (_: Exception) {
             respond("Не удалось прочитать сведения о свободном месте.")
         }
@@ -1421,7 +1424,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         var result = tokens[0].toDouble()
         var j = 1
         while (j + 1 < tokens.size) {
-            val number = tokens[j + 1].toDouble()            result = when (tokens[j]) { "+" -> result + number; "-" -> result - number; "*" -> result * number; "/" -> if (number != 0.0) result / number else return "деление на ноль невозможно"; else -> return "не удалось посчитать" }
+            val number = tokens[j + 1].toDouble()
+            result = when (tokens[j]) { "+" -> result + number; "-" -> result - number; "*" -> result * number; "/" -> if (number != 0.0) result / number else return "деление на ноль невозможно"; else -> return "не удалось посчитать" }
             j += 2
         }
         return if (result % 1.0 == 0.0) result.toLong().toString() else String.format(Locale.US, "%.6f", result).trimEnd('0').trimEnd('.')

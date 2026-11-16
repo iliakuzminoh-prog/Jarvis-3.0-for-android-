@@ -22,4 +22,5 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.mlkit:image-labeling:17.0.9")
+    testImplementation("junit:junit:4.13.2")
 }

@@ -235,33 +235,64 @@ class OverlayService : Service() {
         private var phase = 0f
 
         override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
             val cx = width / 2f
             val cy = height / 2f
-            val r = min(width, height) * .43f
+            val r = min(width, height) * .34f
+
+            // Soft outer glow and glass-like central core.
+            paint.style = Paint.Style.FILL
             paint.shader = RadialGradient(
-                cx - r * .30f, cy - r * .36f, r * 1.3f,
-                intArrayOf(Color.WHITE, Color.rgb(83, 215, 194), Color.rgb(23, 70, 86), Color.rgb(8, 18, 28)),
-                floatArrayOf(0f, .18f, .62f, 1f),
-                Shader.TileMode.CLAMP
+                cx, cy, r * 1.75f,
+                intArrayOf(0x553DDCC8, 0x223DDCC8, Color.TRANSPARENT),
+                floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(cx, cy, r * 1.75f, paint)
+            paint.shader = RadialGradient(
+                cx - r * .34f, cy - r * .38f, r * 1.55f,
+                intArrayOf(Color.WHITE, 0xFF8DF5E4.toInt(), 0xFF237D91.toInt(), 0xFF071827.toInt()),
+                floatArrayOf(0f, .16f, .58f, 1f), Shader.TileMode.CLAMP
             )
             canvas.drawCircle(cx, cy, r, paint)
             paint.shader = null
+
+            // Latitude/longitude lines give the sphere a technical globe appearance.
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = r * .07f
-            paint.color = Color.rgb(83, 215, 194)
-            canvas.drawArc(cx-r*1.08f, cy-r*1.08f, cx+r*1.08f, cy+r*1.08f, phase, 210f, false, paint)
+            paint.strokeWidth = maxOf(1.1f, r * .035f)
+            paint.color = 0xAA9AF7EA.toInt()
+            canvas.drawOval(cx - r * .82f, cy - r * .29f, cx + r * .82f, cy + r * .29f, paint)
+            canvas.drawOval(cx - r * .46f, cy - r, cx + r * .46f, cy + r, paint)
+            paint.color = 0x6674DCCF
+            canvas.drawOval(cx - r * .94f, cy - r * .56f, cx + r * .94f, cy + r * .56f, paint)
+
+            // Three orbital rings rotate at slightly different angles.
+            paint.strokeWidth = maxOf(1.4f, r * .055f)
+            paint.color = 0xFF70E9D8.toInt()
+            canvas.save()
+            canvas.rotate(phase, cx, cy)
+            canvas.drawOval(cx - r * 1.43f, cy - r * .48f, cx + r * 1.43f, cy + r * .48f, paint)
+            canvas.restore()
+            paint.color = 0xAA4AB8C5.toInt()
+            canvas.save()
+            canvas.rotate(-phase * .72f + 48f, cx, cy)
+            canvas.drawOval(cx - r * 1.30f, cy - r * .38f, cx + r * 1.30f, cy + r * .38f, paint)
+            canvas.restore()
+
             paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
-            canvas.drawOval(cx-r*.38f, cy-r*.30f, cx-r*.16f, cy-r*.02f, paint)
-            canvas.drawOval(cx+r*.16f, cy-r*.30f, cx+r*.38f, cy-r*.02f, paint)
-            paint.color = Color.rgb(8,18,28)
-            canvas.drawCircle(cx-r*.27f, cy-r*.16f, r*.055f, paint)
-            canvas.drawCircle(cx+r*.27f, cy-r*.16f, r*.055f, paint)
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = r*.055f
-            paint.color = Color.rgb(8,18,28)
-            canvas.drawArc(cx-r*.24f, cy+r*.02f, cx+r*.24f, cy+r*.30f, 15f, 150f, false, paint)
-            phase = (phase + 2f) % 360f
+            canvas.drawCircle(
+                cx + kotlin.math.cos(Math.toRadians(phase.toDouble())).toFloat() * r * 1.43f,
+                cy + kotlin.math.sin(Math.toRadians(phase.toDouble())).toFloat() * r * .48f,
+                r * .10f, paint
+            )
+            paint.color = 0xFF8BFFF0.toInt()
+            canvas.drawCircle(
+                cx + kotlin.math.cos(Math.toRadians((-phase * .72 + 48).toDouble())).toFloat() * r * 1.30f,
+                cy + kotlin.math.sin(Math.toRadians((-phase * .72 + 48).toDouble())).toFloat() * r * .38f,
+                r * .075f, paint
+            )
+
+            phase = (phase + 1.7f) % 360f
             postInvalidateDelayed(32L)
         }
     }

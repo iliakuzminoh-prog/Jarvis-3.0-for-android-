@@ -383,6 +383,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Языковой слой: разговорные формулировки, русский/английский и простая арифметика.
+        // Он работает до сети, поэтому базовые вопросы не уходят в браузер.
+        val languageAnswer = RussianLanguageEngine.answer(cmd)
+        if (languageAnswer != null) {
+            lastTopic = cmd
+            lastIntent = "language"
+            respond(languageAnswer)
+            return
+        }
+
         // Локальное ядро: химия, математика и базовые задачи — до поиска в сети.
         val coreAnswer = LanguageCore.answer(cmd)
         if (coreAnswer != null) { lastTopic = cmd; lastIntent = "local_core"; respond(coreAnswer); return }

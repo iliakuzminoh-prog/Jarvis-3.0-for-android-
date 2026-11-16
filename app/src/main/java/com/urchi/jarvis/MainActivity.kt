@@ -476,6 +476,24 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        // Управление интерфейсом через Accessibility — только после явного включения
+        // пользователем системного сервиса. JARVIS не пытается включить его сам.
+        if (cmd.startsWith("нажми ") || cmd.startsWith("кликни ")) {
+            val target = original.substringAfter(" ").trim().take(200)
+            if (target.isBlank()) {
+                respond("Укажи текст кнопки, которую нужно нажать.")
+            } else {
+                val service = JarvisAccessibilityService.instance
+                if (service == null || !JarvisAccessibilityService.isServiceEnabled(this)) {
+                    respond("Управление кликами не разрешено. Включи службу JARVIS в специальных возможностях Android.")
+                } else {
+                    val ok = service.clickText(target)
+                    respond(if (ok) "Нажал «$target»." else "Не нашёл доступную кнопку «$target» в текущем окне.")
+                }
+            }
+            return
+        }
+
         // Долговременная локальная память: явное сохранение, поиск и удаление записей.
         when {
             cmd.startsWith("запомни ") || cmd.startsWith("remember ") -> {

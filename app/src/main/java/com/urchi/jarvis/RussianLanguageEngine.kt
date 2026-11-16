@@ -41,6 +41,47 @@ object RussianLanguageEngine {
         "thirty" to 30L,"forty" to 40L,"fifty" to 50L,"hundred" to 100L,"thousand" to 1000L
     )
 
+    /**
+     * Преобразует естественные формулировки в существующие безопасные
+     * системные действия JARVIS. Не выполняет действие само по себе.
+     */
+    fun actionCommand(raw: String): String? {
+        val q = normalize(raw)
+
+        if (q.matches(Regex(".*\\b(выключи|выруби|останови|поставь на паузу|пауза)\\b.*(музык|песн|трек|аудио|воспроизвед).*")) ||
+            q.matches(Regex(".*\\b(музык|песн|трек|аудио)\\b.*\\b(выключи|выруби|останови|пауза)\\b.*")))
+            return "пауза"
+
+        if (q.matches(Regex(".*\\b(продолжи|возобнови)\\b.*(музык|песн|трек|аудио|воспроизвед).*")))
+            return "продолжи музыку"
+
+        if (q.matches(Regex(".*\\b(следующ|следующий|следующая|дальше)\\b.*(трек|песн|музык).*")))
+            return "следующий трек"
+
+        if (q.matches(Regex(".*\\b(предыдущ|прошл)\\b.*(трек|песн|музык).*")))
+            return "предыдущий трек"
+
+        if (q.matches(Regex(".*\\b(поставь|создай|установи)\\b.*\\b(будильник|будильники)\\b.*")))
+            return q
+
+        if (q.matches(Regex(".*\\b(поставь|запусти|задействуй)\\b.*\\b(таймер|таймер на).*")))
+            return q
+
+        if (q.matches(Regex(".*\\b(включи|зажги)\\b.*\\b(фонарик|фонарь)\\b.*")))
+            return "включи фонарик"
+
+        if (q.matches(Regex(".*\\b(выключи|погаси)\\b.*\\b(фонарик|фонарь)\\b.*")))
+            return "выключи фонарик"
+
+        if (q.matches(Regex(".*\\b(открой|запусти)\\b.*\\b(настройки|bluetooth|блютуз|wi[ -]?fi|вайфай)\\b.*")))
+            return q
+
+        if (q.matches(Regex(".*\\b(открой|запусти|включи)\\b.*\\b(телеграм|telegram|ютуб|youtube|вконтакте|вк|музыку)\\b.*")))
+            return q
+
+        return null
+    }
+
     fun answer(raw: String): String? {
         val q = normalize(raw)
         if (q.isBlank()) return null

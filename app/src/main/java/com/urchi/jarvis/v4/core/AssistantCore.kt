@@ -11,7 +11,9 @@ class AssistantCore(context: Context) {
         return when (parsed.kind) {
             CommandKind.MEMORY_REMEMBER -> {
                 if (parsed.argument.isBlank()) reply("Что именно запомнить?", parsed)
-                else {
+                else if (parsed.argument.length > 1000) {
+                    reply("Запись слишком длинная. Ограничение памяти JARVIS — 1000 символов.", parsed)
+                } else {
                     memory.remember(parsed.argument)
                     reply("Запомнил: " + parsed.argument, parsed, true)
                 }

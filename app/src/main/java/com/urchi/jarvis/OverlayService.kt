@@ -63,7 +63,7 @@ class OverlayService : Service() {
             elevation = dp(10).toFloat()
         }
         val params = WindowManager.LayoutParams(
-            dp(58), dp(58), overlayType(),
+            dp(50), dp(50), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {

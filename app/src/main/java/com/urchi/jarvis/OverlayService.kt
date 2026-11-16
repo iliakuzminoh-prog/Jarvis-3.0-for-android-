@@ -116,7 +116,8 @@ class OverlayService : Service() {
                 repeatCount = ValueAnimator.INFINITE
                 addUpdateListener {
                     view.progress = it.animatedValue as Float
-                    view.invalidate()
+                    // Cap actual redraws instead of invalidating at display refresh rate.
+                    view.postInvalidateDelayed(if (thermal >= 2) 70L else 40L)
                 }
                 start()
             }

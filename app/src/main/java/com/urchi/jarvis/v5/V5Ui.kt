@@ -8,7 +8,7 @@ import android.view.View
 import android.widget.*
 import com.urchi.jarvis.ChatStore
 
-class V5Ui(private val context:Context,private val onSend:(String)->Unit,private val onSpeak:()->Unit,private val onNewChat:()->Unit,private val onPermissions:()->Unit){
+class V5Ui(private val context:Context,private val onSend:(String)->Unit,private val onSpeak:()->Unit,private val onNewChat:()->Unit,private val onChats:()->Unit,private val onVoiceSettings:()->Unit,private val onPermissions:()->Unit){
     lateinit var root:LinearLayout
     lateinit var messages:LinearLayout
     lateinit var input:EditText
@@ -20,7 +20,7 @@ class V5Ui(private val context:Context,private val onSend:(String)->Unit,private
         header.addView(Button(context).apply{text="Доступы";setOnClickListener{onPermissions()}})
         root.addView(header)
         val nav=LinearLayout(context).apply{gravity=Gravity.CENTER}
-        nav.addView(button("Новый чат"){onNewChat()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Голос"){onSpeak()},LinearLayout.LayoutParams(0,-2,1f))
+        nav.addView(button("Новый чат"){onNewChat()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Чаты"){onChats()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Голос"){onSpeak()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Голос ↗"){onVoiceSettings()},LinearLayout.LayoutParams(0,-2,1f))
         root.addView(nav)
         root.addView(TextView(context).apply{text="ЯДРО V5 • ЯЗЫК • ПАМЯТЬ • ДЕЙСТВИЯ";textSize=12f;setTextColor(accent);setPadding(12,12,12,12);setBackgroundColor(card)})
         val scroll=ScrollView(context);messages=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(0,10,0,10)};scroll.addView(messages);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))

@@ -133,5 +133,13 @@ class MainActivity:AppCompatActivity(),TextToSpeech.OnInitListener {
         if(::tts.isInitialized){tts.stop();tts.shutdown()}
         super.onDestroy()
     }
-    companion object{private const val REQUEST_SPEECH=7101}
+    companion object {
+        const val EXTRA_OVERLAY_COMMAND = "com.urchi.jarvis.OVERLAY_COMMAND"
+        const val EXTRA_OVERLAY_VOICE = "com.urchi.jarvis.OVERLAY_VOICE"
+        const val EXTRA_OVERLAY_CHATS = "com.urchi.jarvis.OVERLAY_CHATS"
+        const val EXTRA_OVERLAY_MEDIA = "com.urchi.jarvis.OVERLAY_MEDIA"
+        const val EXTRA_OVERLAY_SETTINGS = "com.urchi.jarvis.OVERLAY_SETTINGS"
+        const val EXTRA_OVERLAY_TOKEN = "com.urchi.jarvis.OVERLAY_TOKEN"
+        private const val REQUEST_SPEECH=7101
+    }
 }

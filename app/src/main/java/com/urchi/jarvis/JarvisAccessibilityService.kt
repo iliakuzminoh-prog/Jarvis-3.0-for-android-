@@ -20,17 +20,17 @@ class JarvisAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        serviceInfo = serviceInfo.apply {
-            eventTypes = android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED or
-                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED or
-                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED
-            flags = flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 80
-            if (android.os.Build.VERSION.SDK_INT >= 31) isAccessibilityTool = true
-        }
+        val info = serviceInfo
+        info.eventTypes = android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+            android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+            android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED or
+            android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED or
+            android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED
+        info.flags = info.flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+        info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+        info.notificationTimeout = 80
+        if (android.os.Build.VERSION.SDK_INT >= 31) info.isAccessibilityTool = true
+        setServiceInfo(info)
     }
 
     override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {
@@ -62,8 +62,8 @@ class JarvisAccessibilityService : AccessibilityService() {
         val q = normalize(query)
         val candidates = listOf(
             q,
-            q.replace(Regex("\b(нажми|кликни|тыкни|выбери|открой|включи|запусти|на|из|в|по|рекомендаци[яи])\b"), " ")
-                .replace(Regex("\s+"), " ").trim(),
+            q.replace(Regex("""\b(нажми|кликни|тыкни|выбери|открой|включи|запусти|на|из|в|по|рекомендаци[яи])\b"""), " ")
+                .replace(Regex("""\s+"""), " ").trim(),
             when {
                 q.contains("рекомендац") && q.contains("видео") -> "видео рекомендации"
                 q.contains("рекомендац") && q.contains("музык") -> "музыка рекомендации"
@@ -188,7 +188,7 @@ class JarvisAccessibilityService : AccessibilityService() {
     private fun normalize(value: String): String =
         value.lowercase(Locale.ROOT)
             .replace('ё', 'е')
-            .replace(Regex("[^\p{L}\p{N} ]"), " ")
+            .replace(Regex("""[^\p{L}\p{N} ]"""), " ")
             .replace(Regex("\s+"), " ")
             .trim()
 

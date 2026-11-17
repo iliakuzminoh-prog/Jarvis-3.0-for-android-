@@ -101,7 +101,7 @@ class ChatStore(context: Context) {
 
     companion object {
         private const val KEY = "chats"
-        private const val MAX_CHATS = 100
+        private const val MAX_CHATS = 10_000
         private const val MAX_MESSAGES = 200
     }
 }

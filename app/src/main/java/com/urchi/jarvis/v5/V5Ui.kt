@@ -22,7 +22,7 @@ class V5Ui(private val context:Context,private val onSend:(String)->Unit,private
         val nav=LinearLayout(context).apply{gravity=Gravity.CENTER}
         nav.addView(button("Новый чат"){onNewChat()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Чаты"){onChats()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Голос"){onSpeak()},LinearLayout.LayoutParams(0,-2,1f));nav.addView(button("Голос ↗"){onVoiceSettings()},LinearLayout.LayoutParams(0,-2,1f))
         root.addView(nav)
-        root.addView(TextView(context).apply{text="ЯДРО V5 • ЯЗЫК • ПАМЯТЬ • ДЕЙСТВИЯ";textSize=12f;setTextColor(accent);setPadding(12,12,12,12);setBackgroundColor(card)})
+        root.addView(TextView(context).apply{text="JARVIS V5 • ЯЗЫК • ЗНАНИЯ • ПАМЯТЬ • ДЕЙСТВИЯ";textSize=12f;setTextColor(accent);setPadding(12,12,12,12);setBackgroundColor(card)})
         val scroll=ScrollView(context);messages=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(0,10,0,10)};scroll.addView(messages);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val bar=LinearLayout(context).apply{gravity=Gravity.CENTER_VERTICAL}
         input=EditText(context).apply{hint="Команда или вопрос…";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);maxLines=4}
@@ -30,7 +30,7 @@ class V5Ui(private val context:Context,private val onSend:(String)->Unit,private
         return root
     }
     private fun send(){val t=input.text.toString().trim();if(t.isNotBlank()){input.text.clear();onSend(t)}}
-    fun addMessage(role:String,text:String){messages.addView(TextView(context).apply{text=if(role=="user")"Ты\n$text" else "JARVIS\n$text";textSize=16f;setTextColor(Color.WHITE);setPadding(16,12,16,12);setBackgroundColor(if(role=="user")Color.rgb(25,40,51)else card)},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,6,0,6)})}
+    fun addMessage(role:String,text:String){messages.addView(TextView(context).apply{text=if(role=="user")"Ты\n$text" else "JARVIS\n$text";textSize=16f;setTextColor(Color.WHITE);setPadding(16,12,16,12);setBackgroundColor(if(role=="user")Color.rgb(25,40,51)else card);contentDescription="Сообщение JARVIS"},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,6,0,6)})}
     fun clearMessages(){messages.removeAllViews()}
     private fun button(label:String,action:()->Unit)=Button(context).apply{text=label;setOnClickListener{action()}}
 }

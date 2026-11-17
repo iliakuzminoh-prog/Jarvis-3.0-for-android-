@@ -21,11 +21,15 @@ class JarvisAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         serviceInfo = serviceInfo.apply {
-            eventTypes = AccessibilityServiceInfo.DEFAULT
+            eventTypes = android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED or
+                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED or
+                android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED
             flags = flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 80
-            isAccessibilityTool = true
+            if (android.os.Build.VERSION.SDK_INT >= 31) isAccessibilityTool = true
         }
     }
 
@@ -154,7 +158,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         // gesture is still user-authorized through the Accessibility service.
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
-        if (!bounds.isEmpty && serviceInfo.flags >= 0) {
+        if (!bounds.isEmpty) {
             val x = bounds.centerX().toFloat()
             val y = bounds.centerY().toFloat()
             if (android.os.Build.VERSION.SDK_INT >= 24) {

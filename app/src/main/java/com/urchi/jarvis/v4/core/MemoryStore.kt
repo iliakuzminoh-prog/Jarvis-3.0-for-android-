@@ -112,7 +112,7 @@ class MemoryStore(context: Context) {
 
     companion object {
         private const val KEY = "memories"
-        private const val MAX_MEMORIES = 2000
+        private const val MAX_MEMORIES = 200_000
         private const val MAX_TEXT_LENGTH = 1000
         private const val MAX_CATEGORY_LENGTH = 48
         private const val MAX_QUERY_LENGTH = 200

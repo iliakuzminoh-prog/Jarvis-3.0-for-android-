@@ -10,8 +10,8 @@ on:
       - main
   workflow_dispatch:
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  group: jarvis-android-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -79,9 +79,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-v4-debug-apk-and-build-log
+          name: JARVIS-V5-debug-apk-and-build-log
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
             build.log
           if-no-files-found: warn
+}

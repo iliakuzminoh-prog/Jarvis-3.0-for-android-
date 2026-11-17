@@ -67,7 +67,7 @@ object CapabilityCatalog {
             .map { it to editDistance(q, it.key) }
             .filter { it.second <= maxOf(2, q.length / 7) }
             .minByOrNull { it.second }
-        return best?.value?.let(::canonical)
+        return best?.first?.value?.let(::canonical)
     }
 
     private fun canonical(target: String): String = when (target) {
@@ -91,8 +91,8 @@ object CapabilityCatalog {
 
     private fun normalize(value: String): String =
         value.lowercase(Locale.ROOT).replace('ё', 'е')
-            .replace(Regex("[^\p{L}\p{N} ]"), " ")
-            .replace(Regex("\s+"), " ").trim()
+            .replace(Regex("""[^\p{L}\p{N} ]"""), " ")
+            .replace(Regex("""\s+"""), " ").trim()
 
     private fun editDistance(a: String, b: String): Int {
         if (a == b) return 0

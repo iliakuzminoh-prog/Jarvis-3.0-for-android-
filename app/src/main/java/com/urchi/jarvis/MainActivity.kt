@@ -1449,7 +1449,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val candidate = vpnCandidates[vpnIndex]
         try {
             launchApp(candidate.packageName)
-            respond("Запустил вариант " + (vpnIndex + 1) + " из " + vpnCandidates.size + ": " + candidate.label + ". Для следующего скажи «следующий VPN».")
+            respond("Открыл " + candidate.label + ". Ищу кнопку подключения...")
+            root.postDelayed({
+                val service = JarvisAccessibilityService.instance
+                if (service != null && JarvisAccessibilityService.isServiceEnabled(this)) {
+                    val clicked = service.clickByIntent("подключить connect включить vpn")
+                    if (clicked) respond("Нажал кнопку подключения в " + candidate.label + ". Если Android покажет системное подтверждение VPN, его нужно подтвердить вручную.")
+                    else respond("Открыл " + candidate.label + ", но кнопка подключения не найдена. Системное подтверждение VPN я не подменяю.")
+                } else {
+                    respond("Открыл " + candidate.label + ". Включи Accessibility, чтобы JARVIS мог нажать доступную кнопку подключения.")
+                }
+            }, 1200)
         } catch (_: Exception) {
             respond(candidate.label + " не удалось открыть. Перехожу к следующему варианту.")
             nextVpn()
@@ -1959,11 +1969,23 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         intent.setPackage("com.google.android.youtube")
         try {
             startActivity(intent)
-            respond("Открываю поиск YouTube: $safeQuery.")
+            respond("Открыл поиск YouTube по запросу «$safeQuery». Ищу первый доступный результат...")
+            root.postDelayed({
+                val service = JarvisAccessibilityService.instance
+                if (service != null && JarvisAccessibilityService.isServiceEnabled(this)) {
+                    val ok = service.clickByIntent("видео результат поиска")
+                    if (ok) respond("Нашёл результат и нажал его.")
+                    else respond("Результат открыт, но подходящее видео не найдено. Ничего не выдумываю.")
+                } else {
+                    respond("Поиск открыт. Для автоматического запуска результата включи JARVIS в специальных возможностях.")
+                }
+            }, 1800)
         } catch (_: Exception) {
             intent.setPackage(null)
-            try { startActivity(intent); respond("Открываю результаты YouTube для запроса: $safeQuery.") }
-            catch (_: Exception) { openWeb("YouTube $safeQuery") }
+            try {
+                startActivity(intent)
+                respond("Открываю результаты YouTube для запроса: $safeQuery.")
+            } catch (_: Exception) { openWeb("YouTube $safeQuery") }
         }
     }
 

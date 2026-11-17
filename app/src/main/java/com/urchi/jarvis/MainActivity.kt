@@ -48,6 +48,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var chats: ChatStore
     private lateinit var permissionCenter: JarvisPermissionCenter
     private lateinit var newsFeedStore: NewsFeedStore
+    private lateinit var webInfoService: WebInfoService
+    private lateinit var localMusic: LocalMusicController
     private val secretStore = JarvisSecretStore()
     private var activeChatId = 0L
     private lateinit var languageButton: Button
@@ -83,6 +85,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         chats = ChatStore(this)
         permissionCenter = JarvisPermissionCenter(this)
         newsFeedStore = NewsFeedStore()
+        webInfoService = WebInfoService()
+        localMusic = LocalMusicController(this)
         activeChatId = chats.getOrCreate().id
         accent = prefs.getInt("ui_accent", Color.rgb(83, 215, 194))
         tts = TextToSpeech(this, this)
@@ -315,6 +319,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         addSpace(8)
         root.addView(button("НОВОСТИ РОССИИ И МИРА", false) { showNewsPicker() }, matchWrap())
         addSpace(8)
+        root.addView(button("МУЗЫКА • ФАЙЛЫ", false) { chooseLocalMusic() }, matchWrap())
+        addSpace(8)
+        root.addView(button("УПРАВЛЕНИЕ ЭКРАНОМ", false) { showScreenControl() }, matchWrap())
+        addSpace(8)
         val menuRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -480,24 +488,80 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        // Управление интерфейсом через Accessibility — только после явного включения
-        // пользователем системного сервиса. JARVIS не пытается включить его сам.
-        if (cmd.startsWith("нажми ") || cmd.startsWith("кликни ")) {
-            val target = original.substringAfter(" ").trim().take(200)
+        // Управление видимым интерфейсом через явно включённую пользователем Accessibility-службу.
+        if (cmd.startsWith("нажми ") || cmd.startsWith("кликни ") || cmd.startsWith("тыкни ") || cmd.startsWith("выбери ")) {
+            val target = original.substringAfter(" ").trim().take(240)
+            val service = JarvisAccessibilityService.instance
             if (target.isBlank()) {
-                respond("Укажи текст кнопки, которую нужно нажать.")
+                respond("Укажи, что именно нажать.")
+            } else if (service == null || !JarvisAccessibilityService.isServiceEnabled(this)) {
+                respond("Служба управления экраном не активна. Включи JARVIS в специальных возможностях Android.")
             } else {
-                val service = JarvisAccessibilityService.instance
-                if (service == null || !JarvisAccessibilityService.isServiceEnabled(this)) {
-                    respond("Управление кликами не разрешено. Включи службу JARVIS в специальных возможностях Android.")
-                } else {
-                    val ok = service.clickText(target)
-                    respond(if (ok) "Нажал «$target»." else "Не нашёл доступную кнопку «$target» в текущем окне.")
-                }
+                val ok = service.clickByIntent(target)
+                respond(if (ok) "Выполнил нажатие: «$target»." else "Не нашёл подходящий элемент на текущем экране. Я не буду говорить, что нажал, если Android не подтвердил действие.")
             }
             return
         }
+        if (cmd in setOf("домой", "на главный экран", "главный экран")) {
+            val ok = JarvisAccessibilityService.instance?.globalHome() == true
+            respond(if (ok) "Открыл главный экран." else "Не удалось выполнить Home через Accessibility.")
+            return
+        }
+        if (cmd in setOf("назад", "вернись назад")) {
+            val ok = JarvisAccessibilityService.instance?.globalBack() == true
+            respond(if (ok) "Вернулся назад." else "Не удалось выполнить Back через Accessibility.")
+            return
+        }
+        if (cmd.contains("прокрути вниз") || cmd.contains("листай вниз") || cmd.contains("пролистай вниз")) {
+            val ok = JarvisAccessibilityService.instance?.scrollForward() == true
+            respond(if (ok) "Прокрутил вниз." else "На текущем экране не найден прокручиваемый список.")
+            return
+        }
+        if (cmd.contains("прокрути вверх") || cmd.contains("листай вверх") || cmd.contains("пролистай вверх")) {
+            val ok = JarvisAccessibilityService.instance?.scrollBackward() == true
+            respond(if (ok) "Прокрутил вверх." else "На текущем экране не найден прокручиваемый список.")
+            return
+        }
+        if (cmd in setOf("уведомления", "панель уведомлений", "шторка уведомлений")) {
+            val ok = JarvisAccessibilityService.instance?.globalNotifications() == true
+            respond(if (ok) "Открыл панель уведомлений." else "Не удалось открыть панель уведомлений.")
+            return
+        }
+        if (cmd in setOf("быстрые настройки", "шторка быстрых настроек")) {
+            val ok = JarvisAccessibilityService.instance?.globalQuickSettings() == true
+            respond(if (ok) "Открыл быстрые настройки." else "Не удалось открыть быстрые настройки.")
+            return
+        }
 
+        // Локальная музыка: выбранный через системный picker аудиофайл можно повторно включать.
+        if (cmd.contains("включи скачанную музыку") || cmd.contains("включи скачаную музыку") ||
+            cmd.contains("включи музыку с телефона") || cmd.contains("включи локальную музыку") ||
+            cmd == "включи скачанную песню") {
+            if (localMusic.hasSaved()) {
+                localMusic.playSaved().onSuccess { name -> respond("Включил локальную музыку: $name.") }
+                    .onFailure { chooseLocalMusic() }
+            } else chooseLocalMusic()
+            return
+        }
+        if (cmd == "выбери музыку" || cmd == "выбери аудиофайл" || cmd == "добавь музыку из файлов" ||
+            cmd == "открой музыку из файлов") {
+            chooseLocalMusic()
+            return
+        }
+        if (cmd == "пауза локальной музыки") {
+            respond(if (localMusic.pause()) "Поставил локальную музыку на паузу." else "Локальная музыка сейчас не воспроизводится.")
+            return
+        }
+        if (cmd == "продолжи локальную музыку") {
+            respond(if (localMusic.resume()) "Продолжил локальную музыку." else "Локальный трек не подготовлен.")
+            return
+        }
+
+        // Веб-информация получается в фоне, без открытия браузера.
+        if (shouldFetchWeb(cmd)) {
+            fetchWebAnswer(original)
+            return
+        }
         // Актуальные новости: JARVIS получает RSS при запросе, а не притворяется обученным текущим событиям.
         when {
             cmd == "новости" || cmd == "новости россии" || cmd == "новости в россии" || cmd == "новости рф" -> {
@@ -991,6 +1055,78 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun openCalendar() {
         try { startActivity(Intent(Intent.ACTION_INSERT).setData(android.provider.CalendarContract.Events.CONTENT_URI)); respond("Открываю создание события в календаре. Проверь дату и сохрани его.") }
         catch (_: Exception) { respond("Не найдено приложение календаря.") }
+    }
+
+    private fun chooseLocalMusic() {
+        try {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                type = "audio/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            }, 44)
+            respond("Выбери скачанный аудиофайл. JARVIS сохранит разрешение именно на выбранный файл.")
+        } catch (_: Exception) {
+            respond("Системный выбор аудиофайлов недоступен.")
+        }
+    }
+
+    private fun shouldFetchWeb(cmd: String): Boolean {
+        if (!hasInternetConnection()) return false
+        val explicit = listOf("поищи в интернете", "найди в интернете", "поищи в сети", "найди в сети",
+            "загугли", "что известно про", "что известно о", "найди информацию про",
+            "найди информацию о", "последние сведения", "актуальная информация")
+        if (explicit.any { cmd.contains(it) }) return true
+        val question = listOf("кто такой", "что такое", "почему", "когда", "где", "сколько",
+            "что произошло", "последние новости")
+        return question.any { cmd.startsWith(it) } && cmd.length > 8
+    }
+
+    private fun fetchWebAnswer(query: String) {
+        output.text = "ВЕБ-ПОИСК\nПолучаю информацию без открытия браузера..."
+        webInfoService.lookup(query) { result ->
+            runOnUiThread {
+                result.onSuccess { items ->
+                    val text = items.joinToString("\n\n") { item ->
+                        item.title + "\n" + item.source + "\n" + item.text.take(900)
+                    }.take(7000)
+                    lastTopic = query
+                    lastSearchQuery = query
+                    lastIntent = "background_web"
+                    respond("Нашёл информацию в сети:\n\n" + text)
+                }.onFailure {
+                    respond("Не удалось получить подтверждённые веб-данные сейчас. Браузер автоматически не открывал и ответ не выдумываю.")
+                }
+            }
+        }
+    }
+
+    private fun showScreenControl() {
+        val enabled = JarvisAccessibilityService.instance != null && JarvisAccessibilityService.isServiceEnabled(this)
+        val items = arrayOf("Нажать элемент по названию", "Нажать видео/музыку из рекомендаций",
+            "Прокрутить вниз", "Прокрутить вверх", "Домой", "Назад", "Уведомления",
+            "Быстрые настройки", "Открыть специальные возможности")
+        AlertDialog.Builder(this)
+            .setTitle("Управление экраном • " + if (enabled) "АКТИВНО" else "НЕТ ДОСТУПА")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> {
+                        val edit = EditText(this).apply { hint = "например: Play / Видео / Подписаться" }
+                        AlertDialog.Builder(this).setTitle("Что нажать?").setView(edit)
+                            .setPositiveButton("Нажать") { _, _ ->
+                                val target = edit.text.toString().trim()
+                                if (target.isBlank()) respond("Название не указано.") else runCommand("нажми $target")
+                            }.setNegativeButton("Отмена", null).show()
+                    }
+                    1 -> runCommand("нажми на видео из рекомендаций")
+                    2 -> runCommand("прокрути вниз")
+                    3 -> runCommand("прокрути вверх")
+                    4 -> runCommand("домой")
+                    5 -> runCommand("назад")
+                    6 -> runCommand("уведомления")
+                    7 -> runCommand("быстрые настройки")
+                    8 -> openSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS, "Открываю специальные возможности.")
+                }
+            }.setNegativeButton("Закрыть", null).show()
     }
 
     private fun openFiles() {
@@ -1818,6 +1954,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } else if (requestCode == 43 && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) analyzePhoto(uri) else respond("Фотография не выбрана.")
+        } else if (requestCode == 44 && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                val name = uri.lastPathSegment?.substringAfterLast('/') ?: "аудиофайл"
+                localMusic.play(uri, name).onSuccess { respond("Включил скачанную музыку: $it.") }
+                    .onFailure { e -> respond("Файл выбран, но воспроизведение не удалось: " + (e.localizedMessage ?: "неподдерживаемый аудиоформат")) }
+            } else respond("Аудиофайл не выбран.")
         } else if (requestCode == 42 && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
@@ -2352,6 +2495,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         if (::newsFeedStore.isInitialized) newsFeedStore.close()
+        if (::webInfoService.isInitialized) webInfoService.close()
+        if (::localMusic.isInitialized) localMusic.release()
         if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
         super.onDestroy()
     }

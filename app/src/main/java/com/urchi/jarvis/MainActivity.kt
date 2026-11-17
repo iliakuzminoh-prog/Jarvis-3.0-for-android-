@@ -242,16 +242,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setContentView(scroll)
 
         val brand = TextView(this).apply {
-            text = "J A R V I S"
-            textSize = 25f
-            letterSpacing = .18f
+            text = "JARVIS • CORE"
+            textSize = 29f
+            letterSpacing = .12f
             setTextColor(accent)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
         root.addView(brand, matchWrap())
         val subtitle = TextView(this).apply {
-            text = "ЛОКАЛЬНЫЙ МОБИЛЬНЫЙ ПОМОЩНИК"
+            text = "AI ASSISTANT  •  DEVICE CONTROL  •  WEB"
             textSize = 10f
             letterSpacing = .12f
             setTextColor(Color.LTGRAY)
@@ -276,6 +276,33 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         root.addView(networkLabel, matchWrap())
         addSpace(10)
+
+        val coreCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = roundedBackground(Color.rgb(16, 38, 51), 18)
+            elevation = dp(4).toFloat()
+        }
+        coreCard.addView(TextView(this).apply {
+            text = "JARVIS CORE"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+        }, matchWrap())
+        coreCard.addView(TextView(this).apply {
+            text = "Разговор • команды • память • Web • управление экраном"
+            textSize = 11f
+            setTextColor(Color.LTGRAY)
+            setPadding(0, dp(5), 0, dp(10))
+        }, matchWrap())
+        coreCard.addView(TextView(this).apply {
+            text = "ЧАТЫ: " + chats.list().size + "   ПАМЯТЬ: " + localMemory.recent(1).size +
+                "+   ACCESSIBILITY: " + if (JarvisAccessibilityService.isEnabled(this@MainActivity)) "ON" else "OFF"
+            textSize = 10f
+            setTextColor(Color.WHITE)
+        }, matchWrap())
+        root.addView(coreCard, matchWrap())
+        addSpace(12)
         root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { toggleOverlay() }, matchWrap())
         addSpace(20)
 
@@ -332,6 +359,30 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         menuRow.addView(button("НАСТРОЙКИ", false) { showJarvisSettings() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4) })
         root.addView(menuRow, matchWrap())
         addSpace(18)
+
+        section("JARVIS ACTIONS")
+        val actionGrid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        listOf(
+            "Музыка" to "включи музыку",
+            "Видео" to "нажми на видео из рекомендаций",
+            "Интернет" to "поищи в интернете",
+            "VPN" to "включи vpn",
+            "Файлы" to "открой файлы",
+            "Экран" to "управление экраном"
+        ).chunked(2).forEach { pair ->
+            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            pair.forEach { item ->
+                line.addView(button(item.first, false) {
+                    if (item.second == "управление экраном") showScreenControl()
+                    else runCommand(item.second)
+                }, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                    setMargins(dp(3), dp(3), dp(3), dp(3))
+                })
+            }
+            actionGrid.addView(line, matchWrap())
+        }
+        root.addView(actionGrid, matchWrap())
+        addSpace(12)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
         val actions = listOf(
@@ -466,6 +517,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val cmd = original.lowercase(Locale.getDefault())
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
+
+        val conversationAnswer = ConversationEngine.answer(original)
+        if (conversationAnswer != null) {
+            lastTopic = original
+            lastIntent = "conversation"
+            respond(conversationAnswer)
+            return
+        }
 
         // Масштабируемая грамматика команд покрывает тысячи естественных вариантов
         // без добавления тысяч копий одинакового кода.
@@ -1333,12 +1392,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             cmd.contains("не понял") || cmd.contains("ты не понял") -> {
                 respond("Понял, попробую иначе. Скажи, что именно нужно сделать или объяснить."); true
             }
-            cmd.startsWith("что такое ") || cmd.startsWith("кто такой ") || cmd.startsWith("кто такая ") ||
-                cmd.startsWith("почему ") || cmd.startsWith("зачем ") || cmd.startsWith("как работает ") ||
-                cmd.startsWith("объясни ") || cmd.startsWith("расскажи про ") || cmd.startsWith("ответь ") ||
-                cmd.startsWith("объясни мне ") -> {
-                respond("Я понял вопрос, но в этой сборке нет подключённой языковой модели для свободных знаний и рассуждений. Не буду выдумывать ответ или незаметно открывать Google. Могу выполнить явную команду «найди …» либо продолжить обычный короткий диалог."); true
-            }
             else -> false
         }
     }
@@ -1525,7 +1578,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val launch = packageManager.getLaunchIntentForPackage("com.google.android.youtube")
             if (launch != null) {
                 startActivity(launch)
-                respond("Открыл главную страницу YouTube с рекомендациями. Android не предоставляет JARVIS доступ к твоей персональной ленте и не позволяет надёжно выбрать и запустить конкретную рекомендацию без отдельной интеграции.")
+                respond("Открыл YouTube. Ищу доступное видео в текущих рекомендациях...")
+                root.postDelayed({
+                    val service = JarvisAccessibilityService.instance
+                    if (service != null && JarvisAccessibilityService.isServiceEnabled(this)) {
+                        val ok = service.clickByIntent("видео из рекомендаций")
+                        if (ok) respond("Нашёл видео в рекомендациях и нажал его.")
+                        else respond("YouTube открылся, но подходящий элемент видео не найден. Я не буду притворяться, что запустил ролик.")
+                    } else {
+                        respond("YouTube открыт. Для автоматического нажатия включи JARVIS в специальных возможностях.")
+                    }
+                }, 1400)
             } else {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")))
                 respond("Открыл YouTube в браузере. Автоматически выбрать видео из персональных рекомендаций здесь нельзя.")

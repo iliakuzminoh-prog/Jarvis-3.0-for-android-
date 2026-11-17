@@ -467,6 +467,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (cmd.isBlank()) { respond("Напиши или произнеси команду."); return }
         input.setText("")
 
+        // Масштабируемая грамматика команд покрывает тысячи естественных вариантов
+        // без добавления тысяч копий одинакового кода.
+        val generatedCapability = CapabilityCatalog.resolve(original)
+        if (generatedCapability != null && generatedCapability != "открой музыку") {
+            runCommand(generatedCapability)
+            return
+        }
         // Медиакоманды разбираются до разговорных и школьных ответов.
         // Это предотвращает ответ справочником на просьбу открыть видео/песню.
         when (val media = MediaIntentRouter.resolve(original)) {

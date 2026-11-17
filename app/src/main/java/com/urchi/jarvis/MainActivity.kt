@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.urchi.jarvis.v5.V5ActionExecutor
 import com.urchi.jarvis.v5.V5AssistantEngine
 import com.urchi.jarvis.v5.V5Ui
+import com.urchi.jarvis.v5.V5Planner
 import java.util.Locale
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -16,6 +17,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var chats: ChatStore
     private lateinit var engine: V5AssistantEngine
     private lateinit var actions: V5ActionExecutor
+    private val planner = V5Planner()
     private lateinit var tts: TextToSpeech
     private var activeChatId: Long = 0L
     private var ttsReady = false
@@ -53,16 +55,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         ui.addMessage("user", text)
         chats.add(activeChatId, "user", text)
 
-        val reply = engine.answer(text)
-        var response = reply.text
+        val segments = planner.split(text)
+        val results = mutableListOf<String>()
 
-        if (reply.command != null) {
-            val action = actions.execute(reply.command)
-            if (action.message.isNotBlank()) {
-                response = if (action.ok) action.message else action.message
+        for (segment in segments) {
+            val reply = engine.answer(segment)
+            var response = reply.text
+            if (reply.command != null) {
+                val action = actions.execute(reply.command)
+                if (action.message.isNotBlank()) response = action.message
             }
+            if (response.isNotBlank()) results += response
         }
 
+        val response = results.joinToString("\n")
+            .ifBlank { "Команду не удалось распознать." }
         ui.addMessage("assistant", response)
         chats.add(activeChatId, "assistant", response)
         speak(response)

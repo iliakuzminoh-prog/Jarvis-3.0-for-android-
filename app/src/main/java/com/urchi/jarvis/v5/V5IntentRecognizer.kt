@@ -24,7 +24,7 @@ class V5IntentRecognizer {
     }
     private fun parseDevice(n: String, o: String): ParsedCommand? {
         if (V5TextPipeline.containsAny(n,setOf("уведомления","уведомление","шторка","notifications"))) return ParsedCommand(CommandKind.NOTIFICATION,o,n,confidence=.94f)
-        if (V5TextPipeline.containsAny(n,setOf("вайфай","wifi","wi fi","вай"))) return ParsedCommand(CommandKind.WIFI_SETTINGS,o,n,confidence=.96f)
+        if (RussianMorphology.hasStem(n,"вайфай","wifi","вайфая","вайфаю") || n.contains("wi fi") || n.contains("wifi")) return ParsedCommand(CommandKind.WIFI_SETTINGS,o,n,confidence=.96f)
         if (V5TextPipeline.containsAny(n,setOf("блютуз","bluetooth"))) return ParsedCommand(CommandKind.BLUETOOTH_SETTINGS,o,n,confidence=.96f)
         if (V5TextPipeline.containsAny(n,setOf("назад","вернись","back"))) return ParsedCommand(CommandKind.SETTINGS,o,n,"back",.96f)
         if (V5TextPipeline.containsAny(n,setOf("домой","главный","экран","home"))) return ParsedCommand(CommandKind.SETTINGS,o,n,"home",.88f)

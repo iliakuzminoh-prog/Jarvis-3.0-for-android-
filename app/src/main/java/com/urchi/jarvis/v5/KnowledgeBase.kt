@@ -1,6 +1,8 @@
 package com.urchi.jarvis.v5
 
-data class KnowledgeEntry(val topic:String,val answer:String,val keywords:Set<String>)
+data class KnowledgeEntry(val topic:String,val answer:String,keywordsText:String) {
+    val keywords:Set<String> = keywordsText.split(' ').filter(String::isNotBlank).toSet()
+}
 
 object KnowledgeBase {
     private val entries = listOf(

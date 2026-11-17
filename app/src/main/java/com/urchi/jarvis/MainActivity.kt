@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var localMemory: MemoryStore
     private lateinit var chats: ChatStore
     private lateinit var permissionCenter: JarvisPermissionCenter
+    private lateinit var newsFeedStore: NewsFeedStore
     private val secretStore = JarvisSecretStore()
     private var activeChatId = 0L
     private lateinit var languageButton: Button
@@ -81,6 +82,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         localMemory = MemoryStore(this)
         chats = ChatStore(this)
         permissionCenter = JarvisPermissionCenter(this)
+        newsFeedStore = NewsFeedStore()
         activeChatId = chats.getOrCreate().id
         accent = prefs.getInt("ui_accent", Color.rgb(83, 215, 194))
         tts = TextToSpeech(this, this)
@@ -311,6 +313,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         addSpace(8)
         root.addView(button("НАСТРОЙКИ МУЗЫКАЛЬНОГО ЭФФЕКТА", false) { showMusicCustomization() }, matchWrap())
         addSpace(8)
+        root.addView(button("НОВОСТИ РОССИИ И МИРА", false) { showNewsPicker() }, matchWrap())
+        addSpace(8)
         val menuRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -492,6 +496,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
             return
+        }
+
+        // Актуальные новости: JARVIS получает RSS при запросе, а не притворяется обученным текущим событиям.
+        when {
+            cmd == "новости" || cmd == "новости россии" || cmd == "новости в россии" || cmd == "новости рф" -> {
+                loadNews(NewsFeedStore.Region.RUSSIA)
+                return
+            }
+            cmd == "мировые новости" || cmd == "новости мира" || cmd == "новости зарубежья" ||
+                cmd == "зарубежные новости" || cmd == "новости за границей" -> {
+                loadNews(NewsFeedStore.Region.WORLD)
+                return
+            }
         }
 
         // Долговременная локальная память: явное сохранение, поиск и удаление записей.
@@ -2284,6 +2301,37 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }.setNegativeButton("Закрыть", null).show()
     }
 
+    private fun showNewsPicker() {
+        AlertDialog.Builder(this)
+            .setTitle("Новости JARVIS")
+            .setItems(arrayOf("Новости России", "Новости мира")) { _, which ->
+                loadNews(if (which == 0) NewsFeedStore.Region.RUSSIA else NewsFeedStore.Region.WORLD)
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
+    }
+
+    private fun loadNews(region: NewsFeedStore.Region) {
+        if (!hasInternetConnection()) {
+            respond("Сейчас нет интернета. Новости не выдумываю и не выдаю старые данные за свежие.")
+            return
+        }
+        output.text = "НОВОСТИ • " + region.title + "\nПолучаю свежие заголовки..."
+        newsFeedStore.load(region, 12) { result ->
+            result.onSuccess { articles ->
+                val text = articles.mapIndexed { i, a ->
+                    val date = if (a.published.isBlank()) "" else " • " + a.published
+                    (i + 1).toString() + ". " + a.title + "\n" + a.source + date
+                }.joinToString("\n\n")
+                output.text = "НОВОСТИ • " + region.title + "\n\n" + text
+                chats.add(activeChatId, "assistant", ("Свежие новости: " + region.title + "\n" + text).take(6000))
+                say("Получил " + articles.size + " свежих новостей. Список показан на экране.")
+            }.onFailure { error ->
+                respond("Не удалось получить новости: " + (error.localizedMessage ?: "источники недоступны") + ". Я не буду придумывать содержание.")
+            }
+        }
+    }
+
     private fun showPermissionCenter() {
         val items = permissionCenter.items(this)
         val labels = items.map { "${if (it.granted) "✓" else "○"} ${it.title}\n${it.description}" }.toTypedArray()
@@ -2303,6 +2351,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        if (::newsFeedStore.isInitialized) newsFeedStore.close()
         if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
         super.onDestroy()
     }

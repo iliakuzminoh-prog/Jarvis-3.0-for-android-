@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - jarvis-rebuild-v4
+      - jarvis-v5-rebuild
   pull_request:
     branches:
       - main

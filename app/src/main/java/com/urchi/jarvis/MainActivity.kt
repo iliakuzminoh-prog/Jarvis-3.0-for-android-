@@ -2259,7 +2259,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         d.dismiss()
                         recreate()
                     }.setNegativeButton("Отмена", null).show()
-                2 -> showPermissionCenter()
+                2 -> startActivity(Intent(this, PermissionCenterActivity::class.java))
                 3 -> {
                     AlertDialog.Builder(this).setTitle("Удалить все чаты?")
                         .setMessage("Это удалит локальную историю диалогов.")

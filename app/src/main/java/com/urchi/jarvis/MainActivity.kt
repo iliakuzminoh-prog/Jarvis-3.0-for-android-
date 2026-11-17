@@ -4,6 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.app.AlertDialog
+import android.widget.ArrayAdapter
+import android.widget.SeekBar
+import android.widget.LinearLayout
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.urchi.jarvis.v5.V5ActionExecutor
@@ -34,6 +38,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             onSend = ::process,
             onSpeak = ::listen,
             onNewChat = ::newChat,
+            onChats = ::showChats,
+            onVoiceSettings = ::showVoiceSettings,
             onPermissions = { startActivity(Intent(this, PermissionCenterActivity::class.java)) }
         )
         setContentView(ui.build())
@@ -43,6 +49,46 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun restoreChat() {
         val chat = chats.list().firstOrNull { it.id == activeChatId } ?: return
         chat.messages.takeLast(80).forEach { ui.addMessage(it.role, it.text) }
+    }
+
+    private fun showChats() {
+        val all = chats.list().take(50)
+        if (all.isEmpty()) return
+        val titles = all.map { it.title + " • " + it.messages.size + " сообщений" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Чаты")
+            .setItems(titles) { _, which ->
+                activeChatId = all[which].id
+                ui.clearMessages()
+                all[which].messages.takeLast(80).forEach { ui.addMessage(it.role, it.text) }
+            }
+            .setPositiveButton("Новый чат") { _, _ -> newChat() }
+            .show()
+    }
+
+    private fun showVoiceSettings() {
+        val rate = SeekBar(this).apply { max = 150; progress = 50 }
+        val pitch = SeekBar(this).apply { max = 150; progress = 50 }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 12, 32, 0)
+            addView(android.widget.TextView(this@MainActivity).apply { text = "Скорость речи" })
+            addView(rate)
+            addView(android.widget.TextView(this@MainActivity).apply { text = "Высота голоса" })
+            addView(pitch)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Настройки голоса JARVIS")
+            .setView(box)
+            .setPositiveButton("Применить") { _, _ ->
+                if (ttsReady) {
+                    tts.setSpeechRate(0.5f + rate.progress / 100f)
+                    tts.setPitch(0.5f + pitch.progress / 100f)
+                    speak("Настройки голоса применены.")
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun newChat() {

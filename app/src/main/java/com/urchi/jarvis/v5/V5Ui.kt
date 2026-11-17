@@ -30,7 +30,7 @@ class V5Ui(private val context:Context,private val onSend:(String)->Unit,private
         return root
     }
     private fun send(){val t=input.text.toString().trim();if(t.isNotBlank()){input.text.clear();onSend(t)}}
-    fun addMessage(role:String,text:String){messages.addView(TextView(context).apply{text=if(role=="user")"Ты\n$text" else "JARVIS\n$text";textSize=16f;setTextColor(Color.WHITE);setPadding(16,12,16,12);setBackgroundColor(if(role=="user")Color.rgb(25,40,51)else card);contentDescription="Сообщение JARVIS"},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,6,0,6)})}
+    fun addMessage(role:String,text:String){messages.addView(TextView(context).apply{this.text=if(role=="user")"Ты\n$text" else "JARVIS\n$text";textSize=16f;setTextColor(Color.WHITE);setPadding(16,12,16,12);setBackgroundColor(if(role=="user")Color.rgb(25,40,51)else card);contentDescription="Сообщение JARVIS"},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,6,0,6)})}
     fun clearMessages(){messages.removeAllViews()}
     private fun button(label:String,action:()->Unit)=Button(context).apply{text=label;setOnClickListener{action()}}
 }

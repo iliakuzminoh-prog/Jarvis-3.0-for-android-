@@ -29,7 +29,6 @@ class JarvisAccessibilityService : AccessibilityService() {
         info.flags = info.flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.notificationTimeout = 80
-        if (android.os.Build.VERSION.SDK_INT >= 31) info.isAccessibilityTool = true
         setServiceInfo(info)
     }
 
@@ -189,7 +188,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         value.lowercase(Locale.ROOT)
             .replace('ё', 'е')
             .replace(Regex("""[^\p{L}\p{N} ]"""), " ")
-            .replace(Regex("\s+"), " ")
+            .replace(Regex("""\s+"""), " ")
             .trim()
 
     private fun editDistance(a: String, b: String): Int {

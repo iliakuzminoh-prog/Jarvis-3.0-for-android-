@@ -33,11 +33,65 @@ object AiOrchestrator {
                 val status = connection.responseCode
                 val text = (if (status in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
                 connection.disconnect()
-                if (status !in 200..299) throw IllegalStateException("HTTP $status: $text")
-                val answer = JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content").orEmpty().trim()
+                if (status !in 200..299) {
+                    val retryable = status == 408 || status == 409 || status == 425 || status == 429 || status in 500..599
+                    throw RetryableAiException(status, text, retryable)
+                }
+                val json = JSONObject(text)
+                val answer = extractAnswer(json)
                 if (answer.isBlank()) throw IllegalStateException("Провайдер не вернул текстовый ответ")
                 callback(Result.success(answer))
+            } catch (e: RetryableAiException) {
+                if (e.retryable) {
+                    Thread.sleep(900)
+                    try {
+                        request(context, userText, history, callback)
+                    } catch (retryError: Exception) {
+                        callback(Result.failure(retryError))
+                    }
+                } else callback(Result.failure(e))
             } catch (e: Exception) { callback(Result.failure(e)) }
         }
     }
+    private class RetryableAiException(
+        val status: Int,
+        message: String,
+        val retryable: Boolean
+    ) : IllegalStateException("HTTP $status: $message")
+
+    private fun request(
+        context: Context,
+        userText: String,
+        history: List<Pair<String, String>>,
+        callback: (Result<String>) -> Unit
+    ) {
+        answer(context, userText, history, callback)
+    }
+
+    private fun extractAnswer(json: JSONObject): String {
+        val chatContent = json.optJSONArray("choices")
+            ?.optJSONObject(0)
+            ?.optJSONObject("message")
+            ?.optString("content")
+            .orEmpty()
+        if (chatContent.isNotBlank()) return chatContent.trim()
+
+        val outputText = json.optString("output_text").trim()
+        if (outputText.isNotBlank()) return outputText
+
+        val output = json.optJSONArray("output")
+        if (output != null) {
+            for (i in 0 until output.length()) {
+                val item = output.optJSONObject(i) ?: continue
+                val content = item.optJSONArray("content") ?: continue
+                for (j in 0 until content.length()) {
+                    val part = content.optJSONObject(j) ?: continue
+                    val text = part.optString("text").trim()
+                    if (text.isNotBlank()) return text
+                }
+            }
+        }
+        return ""
+    }
+
 }

@@ -34,7 +34,7 @@ class AdvancedRouter {
             n.contains("tiktok") || n.contains("тикток") -> return intent(TaskKind.TIKTOK,n,.9f,true)
             n.startsWith("код ") || n.startsWith("напиши код") || n.startsWith("исправь код") ->
                 return intent(TaskKind.CODE,n,.95f)
-            return intent(TaskKind.CHAT,n,.55f)
+            else -> return intent(TaskKind.CHAT,n,.55f)
         }
     }
 }

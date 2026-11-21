@@ -22,7 +22,7 @@ object FastPathClassifier {
                 "план", "архитектур", "сравни", "докажи", "почему", "пошагово",
                 "разбери", "исследуй", "review", "refactor", "debug"
             ).any { q.contains(it) }) return Level.DEEP
-        val words = q.split(Regex("\s+")).filter { it.isNotBlank() }
+        val words = q.split(Regex("\\s+")).filter { it.isNotBlank() }
         if (words.size <= 14 && q.length <= 180) return Level.FAST
         return Level.NORMAL
     }

@@ -2596,9 +2596,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val prompt = field(initialPrompt, "Например: неоновый город, дождь, плавное движение камеры").apply {
             minLines = 3; gravity = Gravity.TOP
         }
-        val base = field(prefs.getString("gif_base_url", ""), "URL GIF API")
-        val path = field(prefs.getString("gif_path", "/gifs"), "Endpoint, например /gifs")
-        val model = field(prefs.getString("gif_model", "gif-model"), "Модель GIF")
+        val base = field(prefs.getString("gif_base_url", "") ?: "", "URL GIF API")
+        val path = field(prefs.getString("gif_path", "/gifs") ?: "/gifs", "Endpoint, например /gifs")
+        val model = field(prefs.getString("gif_model", "gif-model") ?: "gif-model", "Модель GIF")
         box.addView(prompt, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap()); box.addView(model, matchWrap())
         box.addView(TextView(this).apply {
             text = if (secretStore.get(this@MainActivity, "gif_api_key").isNullOrBlank())

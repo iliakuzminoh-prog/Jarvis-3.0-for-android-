@@ -158,9 +158,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun enableOverlay() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            respond("Для прозрачной работы плавающего помощника нужно разрешить его постоянное уведомление.")
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 53)
-            return
+            // Не блокируем сам overlay из-за разрешения уведомлений.
         }
         if (!android.provider.Settings.canDrawOverlays(this)) {
             respond("Для плавающего окна нужно разрешить JARVIS показываться поверх других приложений.")
@@ -198,9 +197,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             ttsReady = false
             return
         }
-        val languageStatus = tts.setLanguage(Locale("ru", "RU"))
+        val russianStatus = tts.setLanguage(Locale("ru", "RU"))
         val russianVoices = tts.voices
             ?.filter { it.locale.language == "ru" }
+            ?.sortedByDescending { it.quality }
+            .orEmpty()
+        val fallbackVoices = tts.voices
+            ?.filter { !it.isNetworkConnectionRequired }
             ?.sortedByDescending { it.quality }
             .orEmpty()
         val savedVoiceName = prefs.getString("tts_voice_name", null)
@@ -212,7 +215,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 VoiceOption("Голос ${index + 1} · ${voice.name}", voice.name, 1.0f, 1.0f)
             }
         } else {
-            val baseName = baseVoice?.name
+            val baseName = (baseVoice ?: fallbackVoices.firstOrNull())?.name
             listOf(
                 VoiceOption("Мягкий", baseName, 1.08f, 0.96f),
                 VoiceOption("Спокойный", baseName, 0.96f, 0.94f),
@@ -223,8 +226,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         selectedVoiceIndex = prefs.getInt("tts_voice_index", 0).coerceIn(0, (voiceOptions.size - 1).coerceAtLeast(0))
         applySelectedVoice()
-        ttsReady = languageStatus != TextToSpeech.LANG_MISSING_DATA &&
-            languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
+        ttsReady = russianStatus != TextToSpeech.LANG_MISSING_DATA &&
+            russianStatus != TextToSpeech.LANG_NOT_SUPPORTED
+        if (!ttsReady) {
+            val fallbackLocale = tts.voices
+                ?.firstOrNull { !it.isNetworkConnectionRequired }
+                ?.locale
+            if (fallbackLocale != null) {
+                val fallbackStatus = tts.setLanguage(fallbackLocale)
+                ttsReady = fallbackStatus != TextToSpeech.LANG_MISSING_DATA &&
+                    fallbackStatus != TextToSpeech.LANG_NOT_SUPPORTED
+            }
+        }
     }
 
     private fun buildUi() {
@@ -242,16 +255,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setContentView(scroll)
 
         val brand = TextView(this).apply {
-            text = "JARVIS • CORE"
-            textSize = 29f
-            letterSpacing = .12f
+            text = "J A R V I S"
+            textSize = 25f
+            letterSpacing = .18f
             setTextColor(accent)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
         root.addView(brand, matchWrap())
         val subtitle = TextView(this).apply {
-            text = "AI ASSISTANT  •  DEVICE CONTROL  •  WEB"
+            text = "ЛОКАЛЬНЫЙ МОБИЛЬНЫЙ ПОМОЩНИК"
             textSize = 10f
             letterSpacing = .12f
             setTextColor(Color.LTGRAY)
@@ -276,33 +289,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         root.addView(networkLabel, matchWrap())
         addSpace(10)
-
-        val coreCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = roundedBackground(Color.rgb(16, 38, 51), 18)
-            elevation = dp(4).toFloat()
-        }
-        coreCard.addView(TextView(this).apply {
-            text = "JARVIS CORE"
-            textSize = 13f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(accent)
-        }, matchWrap())
-        coreCard.addView(TextView(this).apply {
-            text = "Разговор • команды • память • Web • управление экраном"
-            textSize = 11f
-            setTextColor(Color.LTGRAY)
-            setPadding(0, dp(5), 0, dp(10))
-        }, matchWrap())
-        coreCard.addView(TextView(this).apply {
-            text = "ЧАТЫ: " + chats.list().size + "   ПАМЯТЬ: " + localMemory.recent(1).size +
-                "+   ACCESSIBILITY: " + if (JarvisAccessibilityService.isEnabled(this@MainActivity)) "ON" else "OFF"
-            textSize = 10f
-            setTextColor(Color.WHITE)
-        }, matchWrap())
-        root.addView(coreCard, matchWrap())
-        addSpace(12)
         root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { toggleOverlay() }, matchWrap())
         addSpace(20)
 
@@ -359,30 +345,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         menuRow.addView(button("НАСТРОЙКИ", false) { showJarvisSettings() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4) })
         root.addView(menuRow, matchWrap())
         addSpace(18)
-
-        section("JARVIS ACTIONS")
-        val actionGrid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        listOf(
-            "Музыка" to "включи музыку",
-            "Видео" to "нажми на видео из рекомендаций",
-            "Интернет" to "поищи в интернете",
-            "VPN" to "включи vpn",
-            "Файлы" to "открой файлы",
-            "Экран" to "управление экраном"
-        ).chunked(2).forEach { pair ->
-            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            pair.forEach { item ->
-                line.addView(button(item.first, false) {
-                    if (item.second == "управление экраном") showScreenControl()
-                    else runCommand(item.second)
-                }, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
-                    setMargins(dp(3), dp(3), dp(3), dp(3))
-                })
-            }
-            actionGrid.addView(line, matchWrap())
-        }
-        root.addView(actionGrid, matchWrap())
-        addSpace(12)
 
         section("БЫСТРЫЕ ДЕЙСТВИЯ")
         val actions = listOf(
@@ -1726,8 +1688,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun launchApp(packageName: String) {
         lastApp = packageName
-        val launch = packageManager.getLaunchIntentForPackage(packageName) ?: throw ActivityNotFoundException()
-        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+            ?: Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                setPackage(packageName)
+            }
+        if (launch.resolveActivity(packageManager) == null) {
+            throw ActivityNotFoundException("У приложения нет доступной запускаемой Activity")
+        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         startActivity(launch)
     }
 
@@ -1848,7 +1817,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             })
             respond(if (query.isBlank()) "Открываю встроенный браузер JARVIS." else "Ищу во встроенном браузере: $query")
         } catch (_: Exception) {
-            respond("Не удалось открыть встроенный браузер JARVIS.")
+            val target = if (query.isBlank()) "https://duckduckgo.com/" else
+                "https://duckduckgo.com/?q=" + Uri.encode(query)
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                respond("Встроенный браузер недоступен. Открыл системный браузер.")
+            } catch (_: Exception) {
+                respond("На телефоне не найдено приложение для открытия веб-страниц.")
+            }
         }
     }
 
@@ -2204,16 +2180,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun say(message: String) {
-        if (!ttsReady) return
+        if (!::tts.isInitialized || message.isBlank()) return
         val latin = message.count { it in 'a'..'z' || it in 'A'..'Z' }
         val cyrillic = message.count { it in 'а'..'я' || it in 'А'..'Я' || it == 'ё' || it == 'Ё' }
-        val locale = if (latin > cyrillic) Locale.ENGLISH else Locale("ru", "RU")
-        val status = tts.setLanguage(locale)
-        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
-            tts.setLanguage(Locale("ru", "RU"))
+        val preferred = if (latin > cyrillic) Locale.ENGLISH else Locale("ru", "RU")
+        val candidates = listOf(preferred, Locale("ru", "RU"), Locale.getDefault(), Locale.ENGLISH).distinct()
+        for (locale in candidates) {
+            val status = tts.setLanguage(locale)
+            if (status != TextToSpeech.LANG_MISSING_DATA && status != TextToSpeech.LANG_NOT_SUPPORTED) {
+                applySelectedVoice()
+                tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+                ttsReady = true
+                return
+            }
         }
-        applySelectedVoice()
-        tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+        ttsReady = false
     }
 
     private fun applySelectedVoice() {

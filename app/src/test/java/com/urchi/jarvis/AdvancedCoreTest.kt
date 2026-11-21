@@ -48,4 +48,20 @@ class AdvancedCoreTest {
         assertFalse(info.exists)
         assertEquals("apk", info.extension)
     }
+    @Test fun routerRecognizesEnglishQuestionsAndCodeRequests() {
+        val r = AdvancedRouter()
+        assertEquals(TaskKind.CHAT, r.classify("What is photosynthesis?").kind)
+        assertEquals(TaskKind.CHAT, r.classify("Why is the sky blue?").kind)
+        assertEquals(TaskKind.CODE, r.classify("write code for a Kotlin calculator").kind)
+        assertEquals(TaskKind.CODE, r.classify("исправь код в этом файле").kind)
+    }
+
+    @Test fun routerKeepsFullNaturalQuestion() {
+        val q = "Кем была мама Александра Пушкина и как её звали?"
+        val intent = AdvancedRouter().classify(q)
+        assertEquals(TaskKind.CHAT, intent.kind)
+        assertEquals(q, intent.argument)
+    }
+
 }
+

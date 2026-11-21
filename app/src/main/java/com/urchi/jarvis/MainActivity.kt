@@ -893,8 +893,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         chats.add(activeChatId, "assistant", answer)
                         say(answer)
                     }.onFailure {
-                        output.text = "AI CORE временно недоступен. Перехожу к резервному ядру."
+                        output.text = "AI CORE временно недоступен. Использую резервный поиск."
                         if (handleConversation(original)) return@runOnUiThread
+                        if (answerInformationFromWeb(original)) return@runOnUiThread
                         openWeb(original)
                     }
                 }
@@ -902,8 +903,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Если полноценная модель не настроена, обычный информационный вопрос
+        // должен получить фактический ответ из веб-источников, а не превратиться
+        // в «не знаю такую команду» и не открывать браузер без явной просьбы.
+        if (!looksLikeExplicitDeviceAction(cmd) && isLikelyInformationRequest(original)) {
+            if (answerInformationFromWeb(original)) return
+        }
+
         // Общие реплики проверяем после математических и предметных знаний,
-        // чтобы «что такое фотосинтез?» не перехватывалось пустой заглушкой.
+        // чтобы обычный разговор не перехватывал информационные запросы.
         if (handleConversation(cmd)) return
 
         // Продолжение предыдущего вопроса.
@@ -2095,6 +2103,56 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun openWeb(query: String) {
         rememberSearch(query, "web")
         openBuiltInBrowser(query)
+    }
+
+    private fun isLikelyInformationRequest(raw: String): Boolean {
+        val q = raw.trim().lowercase(Locale.ROOT).replace('ё', 'е')
+        if (q.isBlank()) return false
+        if (q.endsWith("?") || q.endsWith("？")) return true
+        val prefixes = listOf(
+            "кто ", "кто такой ", "кто такая ", "что ", "что такое ", "что значит ",
+            "какой ", "какая ", "какое ", "какие ", "почему ", "зачем ", "как ",
+            "когда ", "где ", "сколько ", "чем ", "для чего ",
+            "who ", "what ", "why ", "how ", "when ", "where ", "which ", "how much ", "how many "
+        )
+        return prefixes.any { q.startsWith(it) }
+    }
+
+    private fun answerInformationFromWeb(raw: String): Boolean {
+        val query = raw.trim()
+        if (!isLikelyInformationRequest(query) || !hasInternetConnection()) return false
+        output.text = "WEB CORE\nИщу проверяемую информацию..."
+        webInfoService.lookup(query) { result ->
+            runOnUiThread {
+                result.onSuccess { items ->
+                    val best = items.firstOrNull()
+                    if (best == null) {
+                        output.text = "WEB CORE\nНе найдено подходящих источников."
+                        say("Подходящих источников не найдено.")
+                        return@onSuccess
+                    }
+                    val answer = buildString {
+                        append(best.text.trim())
+                        val extra = items.drop(1).take(2)
+                        if (extra.isNotEmpty()) {
+                            append("\n\nДополнительные источники:\n")
+                            extra.forEach { append("• ").append(it.title).append(" — ").append(it.source).append("\n") }
+                        }
+                    }.trim()
+                    lastTopic = query
+                    lastSearchQuery = query
+                    lastIntent = "web_answer"
+                    output.text = answer
+                    chats.add(activeChatId, "assistant", answer.take(30000))
+                    say(best.text.take(500))
+                }.onFailure { error ->
+                    output.text = "WEB CORE\nНе удалось получить ответ из веб-источников: " +
+                        (error.message ?: "неизвестная ошибка")
+                    say("Не удалось получить ответ из веб-источников.")
+                }
+            }
+        }
+        return true
     }
 
     private fun openWebsiteOrSearch(rawTarget: String) {

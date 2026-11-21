@@ -820,9 +820,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        // AI CORE: подключённая модель — последний интеллектуальный слой перед
-        // обычной разговорной обработкой и веб-поиском.
-        if (hasInternetConnection() && !secretStore.get(this, "ai_api_key").isNullOrBlank()) {
+        // AI CORE не должен перехватывать явные действия устройства. Если пользователь
+        // просит открыть/запустить/включить/выключить функцию, сначала должен сработать
+        // реальный Android-исполнитель ниже. Иначе модель могла бы ответить текстом вместо действия.
+        if (hasInternetConnection() &&
+            !secretStore.get(this, "ai_api_key").isNullOrBlank() &&
+            !looksLikeExplicitDeviceAction(cmd)) {
             output.text = "AI CORE\nДумаю..."
             val history = chats.list().firstOrNull { it.id == activeChatId }?.messages
                 ?.takeLast(12)?.map { it.role to it.text }.orEmpty()
@@ -1051,6 +1054,23 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+
+    private fun looksLikeExplicitDeviceAction(cmd: String): Boolean {
+        val actionPrefixes = listOf(
+            "открой ", "запусти ", "включи ", "выключи ", "переключи ",
+            "поставь ", "установи ", "удали ", "позвони ", "набери ",
+            "отправь ", "напиши ", "скопируй ", "поделись ", "сделай снимок",
+            "сгенерируй ", "создай видео", "создай картинку", "создай изображение"
+        )
+        return actionPrefixes.any { cmd.startsWith(it) } ||
+            cmd.contains("настройки") ||
+            cmd.contains("фонарик") ||
+            cmd.contains("громкость") ||
+            cmd.contains("таймер") ||
+            cmd.contains("будильник") ||
+            cmd.contains("плавающее окно") ||
+            cmd.contains("плавающий jarvis")
+    }
 
     private fun rememberIntent(intent: String) {
         lastIntent = intent

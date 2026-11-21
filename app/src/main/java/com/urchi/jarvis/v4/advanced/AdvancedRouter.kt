@@ -67,9 +67,16 @@ class AdvancedRouter {
                 return intent(TaskKind.BUILD,n,.96f)
             }
             n.contains("tiktok") || n.contains("тикток") -> return intent(TaskKind.TIKTOK,n,.9f,true)
-            n.startsWith("код ") || n.startsWith("напиши код") || n.startsWith("исправь код") ->
-                return intent(TaskKind.CODE,n,.95f)
-            else -> return intent(TaskKind.CHAT,n,.55f)
+            n.startsWith("код ") || n.startsWith("напиши код") || n.startsWith("исправь код") ||
+                n.startsWith("write code") || n.startsWith("generate code") || n.startsWith("create code") ||
+                n.startsWith("fix the code") || n.startsWith("write a program") || n.startsWith("create a program") ->
+                return intent(TaskKind.CODE,text,.95f)
+            n.startsWith("объясни ") || n.startsWith("что такое ") || n.startsWith("что значит ") ||
+                n.startsWith("почему ") || n.startsWith("зачем ") || n.startsWith("как работает ") ||
+                n.startsWith("what is ") || n.startsWith("what does ") || n.startsWith("why ") ||
+                n.startsWith("how does ") || n.endsWith("?") || n.endsWith("？") ->
+                return intent(TaskKind.CHAT,text,.90f)
+            else -> return intent(TaskKind.CHAT,text,.55f)
         }
     }
 }

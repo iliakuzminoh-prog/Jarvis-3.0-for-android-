@@ -800,7 +800,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
-                cmd.contains("сгенерируй видео") || cmd.contains("создай видео") || cmd.contains("сгенерировать видео") -> {\n                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\\\s+видео\\\\s*"), "").trim()\n                    showVideoGenerationDialog(prompt)\n                }\n                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
+                cmd.contains("сгенерируй видео") || cmd.contains("создай видео") || cmd.contains("сгенерировать видео") -> {
+                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+видео\\s*"), "").trim()
+                    showVideoGenerationDialog(prompt)
+                }
+                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
                     cmd.contains("создай картинку") || cmd.contains("создай изображение") -> {
                     val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+(картинку|изображение)\\s*"), "").trim()
                     showImageGenerationDialog(prompt)

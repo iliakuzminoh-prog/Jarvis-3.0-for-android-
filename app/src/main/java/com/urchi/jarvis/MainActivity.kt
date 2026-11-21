@@ -861,6 +861,22 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Сначала отдаём обычные вопросы специализированным локальным знаниям.
+        // Это предотвращает ответы вида «такой команды нет» на учебные и языковые вопросы.
+        if (!looksLikeExplicitDeviceAction(cmd)) {
+            val localAnswer = CurriculumKnowledge.answer(original)
+                ?: BrainKnowledge.answer(original)
+                ?: LanguageCore.answer(original)
+            if (!localAnswer.isNullOrBlank()) {
+                lastTopic = original
+                lastIntent = "knowledge"
+                output.text = localAnswer
+                chats.add(activeChatId, "assistant", localAnswer.take(30000))
+                say(localAnswer)
+                return
+            }
+        }
+
         // AI CORE не должен перехватывать явные действия устройства. Если пользователь
         // просит открыть/запустить/включить/выключить функцию, сначала должен сработать
         // реальный Android-исполнитель ниже. Иначе модель могла бы ответить текстом вместо действия.

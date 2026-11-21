@@ -244,156 +244,254 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val scroll = ScrollView(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(7, 15, 25), Color.rgb(12, 29, 42), Color.rgb(7, 15, 25))
+                intArrayOf(Color.rgb(5, 10, 18), Color.rgb(9, 22, 34), Color.rgb(5, 10, 18))
             )
+            isFillViewport = true
         }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(24), dp(18), dp(24))
+            setPadding(dp(16), dp(18), dp(16), dp(28))
         }
         scroll.addView(root)
         setContentView(scroll)
 
-        val brand = TextView(this).apply {
-            text = "J A R V I S"
-            textSize = 25f
-            letterSpacing = .18f
-            setTextColor(accent)
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val brandBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        brandBox.addView(TextView(this).apply {
+            text = "JARVIS"
+            textSize = 27f
+            letterSpacing = .14f
+            setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-        }
-        root.addView(brand, matchWrap())
-        val subtitle = TextView(this).apply {
-            text = "ЛОКАЛЬНЫЙ МОБИЛЬНЫЙ ПОМОЩНИК"
+        }, matchWrap())
+        brandBox.addView(TextView(this).apply {
+            text = "PERSONAL AI SYSTEM"
             textSize = 10f
-            letterSpacing = .12f
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-        }
-        root.addView(subtitle, matchWrap())
-        addSpace(10)
+            letterSpacing = .18f
+            setTextColor(Color.rgb(145, 165, 180))
+        }, matchWrap())
+        header.addView(brandBox, LinearLayout.LayoutParams(0, dp(58), 1f))
 
-        val orb = InternetOrbView(this).apply {
-            contentDescription = "Индикатор интернет-соединения"
-        }
-        root.addView(orb, LinearLayout.LayoutParams(dp(124), dp(124)).apply {
-            gravity = Gravity.CENTER
-            topMargin = dp(4)
-            bottomMargin = dp(6)
-        })
-        val networkLabel = TextView(this).apply {
-            text = if (hasInternetConnection()) "ИНТЕРНЕТ • ОНЛАЙН" else "ИНТЕРНЕТ • ОФЛАЙН"
+        val status = TextView(this).apply {
+            text = if (hasInternetConnection()) "● ONLINE" else "● OFFLINE"
             textSize = 11f
-            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (hasInternetConnection()) accent else Color.LTGRAY)
+            gravity = Gravity.CENTER
+            background = roundedBackground(Color.rgb(18, 35, 48), 20)
+            setPadding(dp(13), dp(8), dp(13), dp(8))
         }
-        root.addView(networkLabel, matchWrap())
-        addSpace(10)
-        root.addView(button("ПЛАВАЮЩЕЕ ОКНО JARVIS", false) { toggleOverlay() }, matchWrap())
-        addSpace(20)
+        header.addView(status, LinearLayout.LayoutParams(-2, dp(38)))
+        root.addView(header, matchWrap())
+        addSpace(12)
+
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            background = roundedBackground(Color.rgb(14, 27, 39), 22)
+            elevation = dp(4).toFloat()
+        }
+        hero.addView(TextView(this).apply {
+            text = "Чем займёмся?"
+            textSize = 23f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+        }, matchWrap())
+        hero.addView(TextView(this).apply {
+            text = "Спроси, дай команду, прикрепи задачу — JARVIS сам выберет подходящий инструмент."
+            textSize = 13f
+            setTextColor(Color.rgb(165, 181, 193))
+            setPadding(0, dp(6), 0, dp(14))
+        }, matchWrap())
+
+        val orbRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val orb = InternetOrbView(this).apply {
+            contentDescription = "Состояние соединения"
+        }
+        orbRow.addView(orb, LinearLayout.LayoutParams(dp(78), dp(78)))
+        val capability = TextView(this).apply {
+            text = "AI CORE\nПамять • Web • Media • Files • Voice"
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            setPadding(dp(14), 0, 0, 0)
+        }
+        orbRow.addView(capability, LinearLayout.LayoutParams(0, dp(78), 1f))
+        hero.addView(orbRow, matchWrap())
+        root.addView(hero, matchWrap())
+        addSpace(12)
 
         output = TextView(this).apply {
-            text = "Готов к работе. Команды выполняются на устройстве."
+            text = "Готов к работе. Здесь будут ответы JARVIS."
             textSize = 15f
             setTextColor(Color.WHITE)
             setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = roundedBackground(panel, 16)
-            elevation = dp(3).toFloat()
+            background = roundedBackground(Color.rgb(11, 20, 30), 20)
+            elevation = dp(2).toFloat()
         }
         root.addView(output, matchWrap())
-        addSpace(12)
+        addSpace(10)
 
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        input = EditText(this).apply {
-            hint = "Например: открой YouTube"
-            setHintTextColor(Color.GRAY)
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            isSingleLine = true
-            setPadding(dp(12), 0, dp(12), 0)
-            background = roundedBackground(panel, 12)
+        val composer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = roundedBackground(Color.rgb(18, 31, 43), 20)
+            elevation = dp(3).toFloat()
         }
-        row.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
-        languageButton = button(if (speechLocale == "ru-RU") "RU" else "EN", false) {
-            toggleSpeechLanguage()
-        }
-        row.addView(languageButton, LinearLayout.LayoutParams(dp(54), dp(52)).apply {
-            setMargins(dp(5), 0, dp(5), 0)
-        })
-        val mic = button("МИК", false) { startVoice() }
-        row.addView(mic, LinearLayout.LayoutParams(dp(64), dp(52)))
-        root.addView(row, matchWrap())
-        addSpace(8)
-        root.addView(button("ВЫПОЛНИТЬ КОМАНДУ", true) { runCommand(input.text.toString()) }, matchWrap())
-        addSpace(8)
-        root.addView(button("ВЫБРАТЬ ГОЛОС • 5 ВАРИАНТОВ", false) { showVoicePicker() }, matchWrap())
-        addSpace(8)
-        root.addView(button("НАСТРОЙКИ МУЗЫКАЛЬНОГО ЭФФЕКТА", false) { showMusicCustomization() }, matchWrap())
-        addSpace(8)
-        root.addView(button("НОВОСТИ РОССИИ И МИРА", false) { showNewsPicker() }, matchWrap())
-        addSpace(8)
-        root.addView(button("МУЗЫКА • ФАЙЛЫ", false) { chooseLocalMusic() }, matchWrap())
-        addSpace(8)
-        root.addView(button("УПРАВЛЕНИЕ ЭКРАНОМ", false) { showScreenControl() }, matchWrap())
-        addSpace(8)
-        val menuRow = LinearLayout(this).apply {
+        val inputRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL
         }
-        menuRow.addView(button("ЧАТЫ", false) { showChats() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(4) })
-        menuRow.addView(button("МЕДИА", false) { showMediaStudio() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4); rightMargin = dp(4) })
-        menuRow.addView(button("НАСТРОЙКИ", false) { showJarvisSettings() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(4) })
-        root.addView(menuRow, matchWrap())
-        addSpace(18)
+        input = EditText(this).apply {
+            hint = "Напиши JARVIS…"
+            setHintTextColor(Color.rgb(120, 140, 155))
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            isSingleLine = true
+            setPadding(dp(13), 0, dp(13), 0)
+            background = roundedBackground(Color.rgb(8, 17, 26), 15)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+            setOnEditorActionListener { _, actionId, event ->
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND ||
+                    (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
+                    runCommand(text.toString())
+                    true
+                } else false
+            }
+        }
+        inputRow.addView(input, LinearLayout.LayoutParams(0, dp(54), 1f))
 
-        section("БЫСТРЫЕ ДЕЙСТВИЯ")
+        val mic = button("●", false) { startVoice() }.apply {
+            textSize = 18f
+            contentDescription = "Голосовой ввод"
+        }
+        inputRow.addView(mic, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            leftMargin = dp(7)
+        })
+        val send = button("➤", true) { runCommand(input.text.toString()) }.apply {
+            textSize = 18f
+            contentDescription = "Отправить команду"
+        }
+        inputRow.addView(send, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            leftMargin = dp(7)
+        })
+        composer.addView(inputRow, matchWrap())
+
+        val modeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val mode = TextView(this).apply {
+            text = if (speechLocale == "ru-RU") "RU • голос" else "EN • voice"
+            textSize = 11f
+            setTextColor(Color.rgb(145, 165, 180))
+            setPadding(dp(3), dp(8), 0, 0)
+            setOnClickListener { toggleSpeechLanguage() }
+        }
+        modeRow.addView(mode, LinearLayout.LayoutParams(0, dp(34), 1f))
+        modeRow.addView(button("Настроить", false) { showJarvisSettings() },
+            LinearLayout.LayoutParams(-2, dp(34)))
+        composer.addView(modeRow, matchWrap())
+        root.addView(composer, matchWrap())
+        addSpace(14)
+
+        section("БЫСТРЫЙ ДОСТУП")
+        val quick = listOf(
+            "Чаты" to { showChats() },
+            "Медиа" to { showMediaStudio() },
+            "Голос" to { showVoicePicker() },
+            "Новости" to { showNewsPicker() },
+            "Музыка" to { chooseLocalMusic() },
+            "Настройки" to { showJarvisSettings() }
+        )
+        quick.chunked(3).forEach { rowItems ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            rowItems.forEach { item ->
+                row.addView(button(item.first, false, item.second),
+                    LinearLayout.LayoutParams(0, dp(46), 1f).apply {
+                        setMargins(dp(3), dp(3), dp(3), dp(3))
+                    })
+            }
+            root.addView(row, matchWrap())
+        }
+
+        addSpace(12)
+        val actionsCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = roundedBackground(Color.rgb(12, 24, 35), 18)
+        }
+        actionsCard.addView(TextView(this).apply {
+            text = "УПРАВЛЕНИЕ УСТРОЙСТВОМ"
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = .12f
+            setTextColor(accent)
+        }, matchWrap())
         val actions = listOf(
-            "Открыть настройки" to "настройки",
             "Wi-Fi" to "открой настройки wi-fi",
             "Bluetooth" to "открой bluetooth",
-            "Включить VPN" to "включи vpn",
-            "Текущее время" to "который час",
             "Батарея" to "покажи заряд батареи",
             "Память" to "сколько свободной памяти",
-            "Пауза музыки" to "пауза",
+            "VPN" to "включи vpn",
             "Помощь" to "помощь"
         )
-        actions.chunked(2).forEach { pair ->
+        actions.chunked(3).forEach { pair ->
             val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             pair.forEach { item ->
                 line.addView(button(item.first, false) { runCommand(item.second) },
-                    LinearLayout.LayoutParams(0, dp(46), 1f).apply { setMargins(0, 0, dp(6), dp(6)) })
+                    LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                        setMargins(dp(3), dp(8), dp(3), 0)
+                    })
             }
-            root.addView(line, matchWrap())
+            actionsCard.addView(line, matchWrap())
         }
+        root.addView(actionsCard, matchWrap())
 
-        addSpace(12)
-        section("ПРИЛОЖЕНИЯ НА ТЕЛЕФОНЕ")
+        addSpace(14)
+        section("ПРИЛОЖЕНИЯ")
         val search = EditText(this).apply {
-            hint = "Поиск приложений..."
-            setHintTextColor(Color.GRAY)
+            hint = "Поиск установленного приложения…"
+            setHintTextColor(Color.rgb(120, 140, 155))
             setTextColor(Color.WHITE)
             setSingleLine(true)
-            setPadding(dp(12), 0, dp(12), 0)
-            background = roundedBackground(panel, 12)
+            setPadding(dp(13), 0, dp(13), 0)
+            background = roundedBackground(Color.rgb(18, 31, 43), 15)
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderApps(s?.toString() ?: "") }
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    renderApps(s?.toString() ?: "")
+                }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
         }
-        root.addView(search, LinearLayout.LayoutParams(-1, dp(48)))
-        addSpace(8)
-        val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; tag = "app_list" }
-        root.addView(appList, matchWrap())
-        addSpace(20)
-        val footer = TextView(this).apply {
-            text = "Локальное управление • AI-медиа подключается отдельно • Действия требуют системных разрешений"
-            textSize = 11f
-            setTextColor(Color.GRAY)
-            gravity = Gravity.CENTER
+        root.addView(search, LinearLayout.LayoutParams(-1, dp(50)))
+        addSpace(7)
+        val appList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "app_list"
         }
-        root.addView(footer, matchWrap())
+        root.addView(appList, matchWrap())
+
+        addSpace(16)
+        root.addView(button("ПЛАВАЮЩИЙ JARVIS", false) { toggleOverlay() }, matchWrap())
+        addSpace(14)
+        root.addView(TextView(this).apply {
+            text = "JARVIS V4 • локальное управление • подключаемые AI-провайдеры"
+            textSize = 10f
+            setTextColor(Color.rgb(95, 115, 130))
+            gravity = Gravity.CENTER
+        }, matchWrap())
     }
 
     private fun section(text: String) {

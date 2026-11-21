@@ -11,6 +11,9 @@ class AdvancedRouter {
             TaskIntent(k,text,arg,c,external)
 
         fun afterPrefix(prefix: String): String =
+            n.removePrefix(prefix).trim()
+
+        fun afterPrefixOriginal(prefix: String): String =
             if (n.startsWith(prefix)) text.substring(prefix.length).trim() else ""
 
         when {
@@ -48,11 +51,11 @@ class AdvancedRouter {
                 return intent(TaskKind.IMAGE,prompt,.96f)
             }
             n.startsWith("проанализируй файл ") ->
-                return intent(TaskKind.FILE,afterPrefix("проанализируй файл "),.95f)
+                return intent(TaskKind.FILE,afterPrefixOriginal("проанализируй файл "),.95f)
             n.startsWith("проанализируй видео ") ->
-                return intent(TaskKind.FILE,afterPrefix("проанализируй видео "),.95f)
+                return intent(TaskKind.FILE,afterPrefixOriginal("проанализируй видео "),.95f)
             n.startsWith("проанализируй фото ") ->
-                return intent(TaskKind.FILE,afterPrefix("проанализируй фото "),.95f)
+                return intent(TaskKind.FILE,afterPrefixOriginal("проанализируй фото "),.95f)
             n.startsWith("собери apk ") || n.startsWith("собери aab ") ||
                 n.startsWith("собери exe ") || n.startsWith("собери проект ") -> {
                 val prefix = when {

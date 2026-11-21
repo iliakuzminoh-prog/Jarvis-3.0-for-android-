@@ -14,8 +14,15 @@ class AdvancedRouter {
             n.startsWith("запомни ") || n.startsWith("remember ") -> return intent(TaskKind.MEMORY,n.substringAfter(' '),.99f)
             n.startsWith("забудь ") || n.startsWith("forget ") -> return intent(TaskKind.MEMORY,n.substringAfter(' '),.99f)
             n.startsWith("поищи ") || n.startsWith("найди в интернете ") ||
-                n.startsWith("загугли ") || n.startsWith("search web ") ->
-                return intent(TaskKind.WEB,n.substringAfter(' '),.98f,true)
+                n.startsWith("загугли ") || n.startsWith("search web ") -> {
+                val query = when {
+                    n.startsWith("найди в интернете ") -> n.removePrefix("найди в интернете ").trim()
+                    n.startsWith("search web ") -> n.removePrefix("search web ").trim()
+                    n.startsWith("загугли ") -> n.removePrefix("загугли ").trim()
+                    else -> n.removePrefix("поищи ").trim()
+                }
+                return intent(TaskKind.WEB,query,.98f,true)
+            }
             n == "открой google" || n == "открой гугл" ->
                 return intent(TaskKind.WEB,"google",.99f,true)
             n.startsWith("открой ") || n.startsWith("запусти ") ->
@@ -24,8 +31,13 @@ class AdvancedRouter {
                 return intent(TaskKind.VIDEO,n.substringAfter("видео").trim(),.98f)
             n.contains("сгенерируй аудио") || n.contains("создай аудио") ->
                 return intent(TaskKind.AUDIO,n.substringAfter("аудио").trim(),.98f)
-            n.contains("сгенерируй картинку") || n.contains("создай изображение") ->
-                return intent(TaskKind.IMAGE,n.substringAfterLast(' ').trim(),.96f)
+            n.contains("сгенерируй картинку") || n.contains("создай изображение") -> {
+                val prompt = when {
+                    n.contains("сгенерируй картинку") -> n.substringAfter("сгенерируй картинку").trim()
+                    else -> n.substringAfter("создай изображение").trim()
+                }
+                return intent(TaskKind.IMAGE,prompt,.96f)
+            }
             n.startsWith("проанализируй файл ") || n.startsWith("проанализируй видео ") ||
                 n.startsWith("проанализируй фото ") -> return intent(TaskKind.FILE,n.substringAfter(' '),.95f)
             n.startsWith("собери apk") || n.startsWith("собери aab") ||

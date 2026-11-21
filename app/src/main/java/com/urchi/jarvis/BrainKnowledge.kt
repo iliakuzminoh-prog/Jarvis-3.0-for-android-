@@ -122,7 +122,18 @@ object BrainKnowledge {
 
         // Базовая беседа должна работать без Google и без сети.
         conversationAnswer(q)?.let { return it }
-        facts.firstOrNull { fact -> fact.keys.any { q == normalize(it) || q.contains(normalize(it)) } }?.let { return it.answer }
+        facts.firstOrNull { fact -> fact.keys.any { key ->
+            val normalizedKey = normalize(key)
+            q == normalizedKey || q.contains(normalizedKey)
+        } }?.let { return it.answer }
+
+        // Tolerate common one-character typos without turning arbitrary text into a fact lookup.
+        val fuzzy = facts.asSequence()
+            .flatMap { fact -> fact.keys.asSequence().map { key -> normalize(key) to fact.answer } }
+            .map { (key, answer) -> Triple(key, answer, fuzzyScore(q, key)) }
+            .filter { it.third >= 0.86 }
+            .maxByOrNull { it.third }
+        if (fuzzy != null) return fuzzy.second
         solveAppleProblem(q)?.let { return it }
         solveSimpleWordProblem(q)?.let { return it }
         if (q.matches(Regex(".*сколько.*яблок.*"))) {
@@ -184,6 +195,37 @@ object BrainKnowledge {
         if (add && !sub) return "Решение: ${fmt(nums[0])} + ${fmt(nums[1])} = ${fmt(nums[0] + nums[1])}."
         if (sub) return "Решение: ${fmt(nums[0])} − ${fmt(nums[1])} = ${fmt(nums[0] - nums[1])}."
         return null
+    }
+
+    private fun fuzzyScore(query: String, key: String): Double {
+        val qTokens = query.split(' ').filter { it.length >= 3 }.toSet()
+        val kTokens = key.split(' ').filter { it.length >= 3 }.toSet()
+        if (qTokens.isEmpty() || kTokens.isEmpty()) return 0.0
+        val matched = kTokens.count { kt -> qTokens.any { qt -> editDistance(qt, kt) <= if (kt.length >= 6) 2 else 1 } }
+        val overlap = matched.toDouble() / kTokens.size.toDouble()
+        val lengthPenalty = if (query.length < key.length / 2) 0.75 else 1.0
+        return overlap * lengthPenalty
+    }
+
+    private fun editDistance(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var previous = IntArray(b.length + 1) { it }
+        for (i in a.indices) {
+            val current = IntArray(b.length + 1)
+            current[0] = i + 1
+            for (j in b.indices) {
+                val cost = if (a[i] == b[j]) 0 else 1
+                current[j + 1] = minOf(
+                    current[j] + 1,
+                    previous[j + 1] + 1,
+                    previous[j] + cost
+                )
+            }
+            previous = current
+        }
+        return previous[b.length]
     }
 
     private fun normalize(s: String): String =

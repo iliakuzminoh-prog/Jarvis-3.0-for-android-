@@ -722,6 +722,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // AI CORE: подключённая модель — последний интеллектуальный слой перед
+        // обычной разговорной обработкой и веб-поиском.
+        if (hasInternetConnection() && !secretStore.get(this, "ai_api_key").isNullOrBlank()) {
+            output.text = "AI CORE\nДумаю..."
+            val history = chats.list().firstOrNull { it.id == activeChatId }?.messages
+                ?.takeLast(12)?.map { it.role to it.text }.orEmpty()
+            AiOrchestrator.answer(this, original, history) { result ->
+                runOnUiThread {
+                    result.onSuccess { answer ->
+                        output.text = answer
+                        chats.add(activeChatId, "assistant", answer)
+                        say(answer)
+                    }.onFailure {
+                        output.text = "AI CORE временно недоступен. Перехожу к резервному ядру."
+                        if (handleConversation(original)) return@runOnUiThread
+                        openWeb(original)
+                    }
+                }
+            }
+            return
+        }
+
         // Общие реплики проверяем после математических и предметных знаний,
         // чтобы «что такое фотосинтез?» не перехватывалось пустой заглушкой.
         if (handleConversation(cmd)) return
@@ -778,7 +800,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
-                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
+                cmd.contains("сгенерируй видео") || cmd.contains("создай видео") || cmd.contains("сгенерировать видео") -> {\n                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\\\s+видео\\\\s*"), "").trim()\n                    showVideoGenerationDialog(prompt)\n                }\n                cmd.contains("сгенерируй картинку") || cmd.contains("сгенерируй изображение") ||
                     cmd.contains("создай картинку") || cmd.contains("создай изображение") -> {
                     val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+(картинку|изображение)\\s*"), "").trim()
                     showImageGenerationDialog(prompt)
@@ -2380,14 +2402,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showMediaStudio() {
         val items = arrayOf(
             "Сгенерировать изображение",
+            "Сгенерировать видео",
             "Посмотреть изображение / анализировать фото",
             "Открыть галерею"
         )
         AlertDialog.Builder(this).setTitle("Медиа JARVIS").setItems(items) { _, which ->
             when (which) {
                 0 -> showImageGenerationDialog()
-                1 -> selectPhotoForAnalysis()
-                2 -> openGallery()
+                1 -> showVideoGenerationDialog()
+                2 -> selectPhotoForAnalysis()
+                3 -> openGallery()
             }
         }.setNegativeButton("Закрыть", null).show()
     }
@@ -2433,6 +2457,85 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .setNegativeButton("Отмена", null).show()
     }
 
+    private fun showVideoGenerationDialog(initialPrompt: String = "") {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0) }
+        val prompt = EditText(this).apply { hint = "Например: кинематографический полёт над городом, 8 секунд"; setText(initialPrompt); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY); minLines = 3; gravity = Gravity.TOP }
+        val base = EditText(this).apply { hint = "URL API"; setText(prefs.getString("video_base_url", "")); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        val path = EditText(this).apply { hint = "Endpoint, например /videos"; setText(prefs.getString("video_path", "/videos")); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        val model = EditText(this).apply { hint = "Модель видео"; setText(prefs.getString("video_model", "video-model")); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        box.addView(prompt, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap()); box.addView(model, matchWrap())
+        box.addView(TextView(this).apply { text = "Универсальный HTTP-адаптер: провайдер должен принять model + prompt и вернуть video_url/url."; setTextColor(Color.LTGRAY); textSize = 11f }, matchWrap())
+        AlertDialog.Builder(this).setTitle("Генерация видео").setView(box)
+            .setPositiveButton("Сгенерировать") { _, _ ->
+                val b = base.text.toString().trim(); val p = path.text.toString().trim(); val m = model.text.toString().trim()
+                prefs.edit().putString("video_base_url", b).putString("video_path", p).putString("video_model", m).apply()
+                if (secretStore.get(this, "video_api_key").isNullOrBlank()) showVideoKeyDialog()
+                else if (b.isBlank() || p.isBlank() || m.isBlank() || prompt.text.toString().trim().isBlank()) respond("Для видео нужны prompt, API URL, endpoint и модель.")
+                else {
+                    output.text = "ВИДЕО\nОтправляю запрос генератору..."
+                    VideoGenerationService.generate(this, prompt.text.toString().trim(), b, p, m) { result ->
+                        runOnUiThread {
+                            result.onSuccess { file -> showGeneratedVideo(file) }
+                                .onFailure { e ->
+                                    val message = e.localizedMessage ?: "ошибка провайдера"
+                                    respond(if (message.startsWith("VIDEO_JOB_CREATED:"))
+                                        "Провайдер создал задачу " + message.removePrefix("VIDEO_JOB_CREATED:") + ", но адаптер не знает endpoint статуса."
+                                    else "Генерация видео не удалась: " + message)
+                                }
+                        }
+                    }
+                }
+            }
+            .setNeutralButton("API-ключ") { _, _ -> showVideoKeyDialog() }
+            .setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showVideoKeyDialog() {
+        val edit = EditText(this).apply { hint = "API key"; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setText(secretStore.get(this@MainActivity, "video_api_key").orEmpty()) }
+        AlertDialog.Builder(this).setTitle("Ключ видеогенератора").setView(edit)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val value = edit.text.toString().trim()
+                if (value.isBlank()) secretStore.clear(this, "video_api_key") else secretStore.put(this, "video_api_key", value)
+                respond(if (value.isBlank()) "Ключ видео удалён." else "Ключ видео сохранён.")
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGeneratedVideo(file: java.io.File) {
+        val video = VideoView(this).apply {
+            setVideoPath(file.absolutePath)
+            setMediaController(android.widget.MediaController(this@MainActivity))
+            setOnPreparedListener { it.isLooping = false; start() }
+        }
+        AlertDialog.Builder(this).setTitle("JARVIS • видео").setView(video)
+            .setPositiveButton("Готово") { _, _ -> video.stopPlayback(); file.delete() }
+            .setOnCancelListener { video.stopPlayback(); file.delete() }.show()
+    }
+
+    private fun showAiSettings() {
+        val c = AiProviderStore.load(this)
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0) }
+        fun field(value: String, hintText: String): EditText = EditText(this).apply { setText(value); hint = hintText; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        val name = field(c.name, "Название провайдера"); val base = field(c.baseUrl, "Base URL"); val path = field(c.chatPath, "/chat/completions")
+        val model = field(c.model, "Модель"); val system = field(c.systemPrompt, "Системная инструкция").apply { minLines = 4; gravity = Gravity.TOP }
+        box.addView(name, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap()); box.addView(model, matchWrap()); box.addView(system, matchWrap())
+        box.addView(TextView(this).apply { text = if (secretStore.get(this@MainActivity, "ai_api_key").isNullOrBlank()) "API-ключ: не задан" else "API-ключ: сохранён в Android Keystore"; setTextColor(Color.LTGRAY); textSize = 11f }, matchWrap())
+        AlertDialog.Builder(this).setTitle("AI CORE • провайдер и мозг").setView(box)
+            .setPositiveButton("Сохранить") { _, _ ->
+                AiProviderStore.save(this, AiProviderConfig(name.text.toString(), base.text.toString(), path.text.toString(), model.text.toString(), system.text.toString()))
+                respond("Настройки AI CORE сохранены.")
+            }.setNeutralButton("API-ключ") { _, _ -> showAiKeyDialog() }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun showAiKeyDialog() {
+        val edit = EditText(this).apply { hint = "API key"; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setText(secretStore.get(this@MainActivity, "ai_api_key").orEmpty()) }
+        AlertDialog.Builder(this).setTitle("Ключ AI-провайдера").setView(edit)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val value = edit.text.toString().trim()
+                if (value.isBlank()) secretStore.clear(this, "ai_api_key") else secretStore.put(this, "ai_api_key", value)
+                respond(if (value.isBlank()) "AI-ключ удалён." else "AI-ключ сохранён в защищённом хранилище.")
+            }.setNegativeButton("Отмена", null).show()
+    }
+
     private fun showImageKeyDialog() {
         val edit = EditText(this).apply {
             hint = "sk_..."
@@ -2476,6 +2579,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Color.rgb(180,120,255), Color.rgb(255,184,77)
         )
         val items = arrayOf(
+            "AI CORE • модель и провайдер",
+            "Видео • API генератора",
             "Голос и скорость речи",
             "Цвет интерфейса",
             "Центр разрешений",
@@ -2485,15 +2590,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
         AlertDialog.Builder(this).setTitle("Настройки JARVIS").setItems(items) { _, which ->
             when (which) {
-                0 -> showVoicePicker()
-                1 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
+                0 -> showAiSettings()
+                1 -> showVideoGenerationDialog()
+                2 -> showVoicePicker()
+                3 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
                     .setSingleChoiceItems(themeNames, themeColors.indexOfFirst { it == accent }.coerceAtLeast(0)) { d, i ->
                         prefs.edit().putInt("ui_accent", themeColors[i]).apply()
                         d.dismiss()
                         recreate()
                     }.setNegativeButton("Отмена", null).show()
-                2 -> startActivity(Intent(this, PermissionCenterActivity::class.java))
-                3 -> {
+                4 -> startActivity(Intent(this, PermissionCenterActivity::class.java))
+                5 -> {
                     AlertDialog.Builder(this).setTitle("Удалить все чаты?")
                         .setMessage("Это удалит локальную историю диалогов.")
                         .setPositiveButton("Удалить") { _, _ ->
@@ -2502,11 +2609,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             respond("История чатов очищена.")
                         }.setNegativeButton("Отмена", null).show()
                 }
-                4 -> {
+                6 -> {
                     localMemory.clearUnpinned()
                     respond("Неприкреплённые записи памяти удалены.")
                 }
-                5 -> {
+                7 -> {
                     val msg = "Чатов: ${chats.list().size}\nСообщений: ${chats.messageCount()}\n" +
                         "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база\n" +
                         "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}\n" +

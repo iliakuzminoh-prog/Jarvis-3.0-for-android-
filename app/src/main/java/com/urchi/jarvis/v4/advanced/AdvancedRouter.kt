@@ -11,7 +11,7 @@ class AdvancedRouter {
             TaskIntent(k,text,arg,c,external)
 
         fun afterPrefix(prefix: String): String =
-            n.removePrefix(prefix).trim()
+            if (n.startsWith(prefix)) text.substring(prefix.length).trim() else ""
 
         when {
             n.startsWith("запомни ") || n.startsWith("remember ") ->
@@ -34,16 +34,16 @@ class AdvancedRouter {
                 return intent(TaskKind.APP,afterPrefix(if (n.startsWith("открой ")) "открой " else "запусти "),.92f)
             n.contains("сгенерируй видео") || n.contains("создай видео") -> {
                 val prefix = if (n.contains("сгенерируй видео")) "сгенерируй видео" else "создай видео"
-                return intent(TaskKind.VIDEO,n.substringAfter(prefix).trim(),.98f)
+                return intent(TaskKind.VIDEO,text.substring(prefix.length).trim(),.98f)
             }
             n.contains("сгенерируй аудио") || n.contains("создай аудио") -> {
                 val prefix = if (n.contains("сгенерируй аудио")) "сгенерируй аудио" else "создай аудио"
-                return intent(TaskKind.AUDIO,n.substringAfter(prefix).trim(),.98f)
+                return intent(TaskKind.AUDIO,text.substring(prefix.length).trim(),.98f)
             }
             n.contains("сгенерируй картинку") || n.contains("создай изображение") -> {
                 val prompt = when {
-                    n.contains("сгенерируй картинку") -> n.substringAfter("сгенерируй картинку").trim()
-                    else -> n.substringAfter("создай изображение").trim()
+                    n.contains("сгенерируй картинку") -> text.substring(n.indexOf("сгенерируй картинку") + "сгенерируй картинку".length).trim()
+                    else -> text.substring(n.indexOf("создай изображение") + "создай изображение".length).trim()
                 }
                 return intent(TaskKind.IMAGE,prompt,.96f)
             }

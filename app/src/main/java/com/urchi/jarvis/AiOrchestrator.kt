@@ -11,7 +11,10 @@ object AiOrchestrator {
     private const val MAX_ATTEMPTS = 2
     private val executor = Executors.newCachedThreadPool()
 
-    fun answer(context: Context, userText: String, history: List<Pair<String, String>>, callback: (Result<String>) -> Unit) {
+    fun answer(context: Context, userText: String, history: List<Pair<String, String>>, callback: (Result<String>) -> Unit) =
+        answer(context, userText, history, null, callback)
+
+    fun answer(context: Context, userText: String, history: List<Pair<String, String>>, systemPrompt: String?, callback: (Result<String>) -> Unit) {
         val key = JarvisSecretStore().get(context, "ai_api_key")
         val c = AiProviderStore.load(context)
         if (key.isNullOrBlank() || c.baseUrl.isBlank() || c.model.isBlank()) {
@@ -21,7 +24,7 @@ object AiOrchestrator {
             var lastError: Throwable? = null
             for (attempt in 1..MAX_ATTEMPTS) {
                 try {
-                    callback(Result.success(requestOnce(key, c, userText, history)))
+                    callback(Result.success(requestOnce(key, c, userText, history, systemPrompt)))
                     return@execute
                 } catch (e: RetryableAiException) {
                     lastError = e
@@ -35,7 +38,7 @@ object AiOrchestrator {
         }
     }
 
-    private fun requestOnce(key: String, c: AiProviderConfig, userText: String, history: List<Pair<String, String>>): String {
+    private fun requestOnce(key: String, c: AiProviderConfig, userText: String, history: List<Pair<String, String>>, systemPrompt: String?): String {
         val connection = (URL(c.baseUrl + c.chatPath).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; connectTimeout = 15000; readTimeout = 60000; doOutput = true
             setRequestProperty("Authorization", "Bearer $key")
@@ -43,7 +46,7 @@ object AiOrchestrator {
             setRequestProperty("Accept", "application/json")
         }
         try {
-            val messages = JSONArray().put(JSONObject().put("role", "system").put("content", c.systemPrompt))
+            val messages = JSONArray().put(JSONObject().put("role", "system").put("content", systemPrompt?.takeIf { it.isNotBlank() } ?: c.systemPrompt))
             history.takeLast(12).forEach { (role, content) ->
                 if (content.isNotBlank()) messages.put(JSONObject().put("role", role).put("content", content.take(6000)))
             }

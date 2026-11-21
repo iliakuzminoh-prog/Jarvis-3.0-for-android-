@@ -901,6 +901,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 cmd.contains("таймер") -> setTimer(raw)
                 cmd.contains("будильник") -> openAlarm(raw)
                 cmd.contains("календар") || cmd.contains("событие") -> openCalendar()
+                cmd.contains("сгенерируй гифку") || cmd.contains("создай гифку") || cmd.contains("сгенерировать gif") || cmd.contains("сгенерировать гиф") -> {
+                    val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+(гифку|gif|гиф)\\s*"), "").trim()
+                    showGifGenerationDialog(prompt)
+                }
                 cmd.contains("сгенерируй видео") || cmd.contains("создай видео") || cmd.contains("сгенерировать видео") -> {
                     val prompt = raw.replaceFirst(Regex("(?i)^(сгенерируй|создай)\\s+видео\\s*"), "").trim()
                     showVideoGenerationDialog(prompt)
@@ -2525,6 +2529,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val items = arrayOf(
             "Сгенерировать изображение",
             "Сгенерировать видео",
+            "Сгенерировать GIF",
             "Посмотреть изображение / анализировать фото",
             "Открыть галерею"
         )
@@ -2532,8 +2537,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             when (which) {
                 0 -> showImageGenerationDialog()
                 1 -> showVideoGenerationDialog()
-                2 -> selectPhotoForAnalysis()
-                3 -> openGallery()
+                2 -> showGifGenerationDialog()
+                3 -> selectPhotoForAnalysis()
+                4 -> openGallery()
             }
         }.setNegativeButton("Закрыть", null).show()
     }
@@ -2577,6 +2583,117 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             .setNeutralButton("Ключ API") { _, _ -> showImageKeyDialog() }
             .setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGifGenerationDialog(initialPrompt: String = "") {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), 0)
+        }
+        fun field(value: String, hint: String): EditText = EditText(this).apply {
+            setText(value); this.hint = hint; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
+        }
+        val prompt = field(initialPrompt, "Например: неоновый город, дождь, плавное движение камеры").apply {
+            minLines = 3; gravity = Gravity.TOP
+        }
+        val base = field(prefs.getString("gif_base_url", ""), "URL GIF API")
+        val path = field(prefs.getString("gif_path", "/gifs"), "Endpoint, например /gifs")
+        val model = field(prefs.getString("gif_model", "gif-model"), "Модель GIF")
+        box.addView(prompt, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap()); box.addView(model, matchWrap())
+        box.addView(TextView(this).apply {
+            text = if (secretStore.get(this@MainActivity, "gif_api_key").isNullOrBlank())
+                "API-ключ GIF: не задан"
+            else "API-ключ GIF: сохранён в Android Keystore"
+            setTextColor(Color.LTGRAY); textSize = 11f
+        }, matchWrap())
+        AlertDialog.Builder(this).setTitle("Генерация GIF").setView(box)
+            .setPositiveButton("Сгенерировать") { _, _ ->
+                val b = base.text.toString().trim()
+                val p = path.text.toString().trim()
+                val m = model.text.toString().trim()
+                val q = prompt.text.toString().trim()
+                prefs.edit().putString("gif_base_url", b).putString("gif_path", p).putString("gif_model", m).apply()
+                if (secretStore.get(this, "gif_api_key").isNullOrBlank()) showGifKeyDialog()
+                else if (b.isBlank() || p.isBlank() || m.isBlank() || q.isBlank()) {
+                    respond("Для GIF нужны prompt, API URL, endpoint и модель.")
+                } else {
+                    output.text = "GIF\nОтправляю запрос генератору..."
+                    GifGenerationService.generate(this, q, b, p, m) { result ->
+                        runOnUiThread {
+                            result.onSuccess { file -> showGeneratedGif(file) }
+                                .onFailure { e ->
+                                    val message = e.localizedMessage ?: "ошибка провайдера"
+                                    respond(if (message.startsWith("GIF_JOB_CREATED:"))
+                                        "Провайдер создал GIF-задачу " + message.removePrefix("GIF_JOB_CREATED:") + ", но endpoint статуса не настроен."
+                                    else "Генерация GIF не удалась: " + message)
+                                }
+                        }
+                    }
+                }
+            }
+            .setNeutralButton("API-ключ") { _, _ -> showGifKeyDialog() }
+            .setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGifKeyDialog() {
+        val edit = EditText(this).apply {
+            hint = "API key"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(secretStore.get(this@MainActivity, "gif_api_key").orEmpty())
+        }
+        AlertDialog.Builder(this).setTitle("Ключ GIF-генератора").setView(edit)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val value = edit.text.toString().trim()
+                if (value.isBlank()) secretStore.clear(this, "gif_api_key") else secretStore.put(this, "gif_api_key", value)
+                respond(if (value.isBlank()) "Ключ GIF удалён." else "Ключ GIF сохранён.")
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun showGeneratedGif(file: java.io.File) {
+        val view = AnimatedGifView(this, file)
+        AlertDialog.Builder(this).setTitle("JARVIS • GIF").setView(view)
+            .setPositiveButton("Готово") { _, _ -> view.stop(); file.delete() }
+            .setOnCancelListener { view.stop(); file.delete() }.show()
+    }
+
+    private class AnimatedGifView(context: Context, file: java.io.File) : View(context) {
+        private val movie = android.graphics.Movie.decodeFile(file.absolutePath)
+        private var startedAt = 0L
+        private var running = true
+
+        init {
+            if (movie == null) running = false
+            isFocusable = true
+        }
+
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            super.onDraw(canvas)
+            val m = movie ?: return
+            if (startedAt == 0L) startedAt = android.os.SystemClock.uptimeMillis()
+            val duration = if (m.duration() > 0) m.duration() else 1000
+            val elapsed = ((android.os.SystemClock.uptimeMillis() - startedAt) % duration).toInt()
+            m.setTime(elapsed)
+            val scale = minOf(width.toFloat() / m.width().coerceAtLeast(1), height.toFloat() / m.height().coerceAtLeast(1))
+            val dx = (width - m.width() * scale) / 2f
+            val dy = (height - m.height() * scale) / 2f
+            canvas.save()
+            canvas.translate(dx, dy)
+            canvas.scale(scale, scale)
+            m.draw(canvas, 0f, 0f)
+            canvas.restore()
+            if (running) postInvalidateOnAnimation()
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            startedAt = android.os.SystemClock.uptimeMillis()
+            running = movie != null
+        }
+
+        fun stop() {
+            running = false
+            removeCallbacks(null)
+        }
     }
 
     private fun showVideoGenerationDialog(initialPrompt: String = "") {
@@ -2703,6 +2820,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val items = arrayOf(
             "AI CORE • модель и провайдер",
             "Видео • API генератора",
+            "GIF • API генератора",
             "Голос и скорость речи",
             "Цвет интерфейса",
             "Центр разрешений",
@@ -2714,15 +2832,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             when (which) {
                 0 -> showAiSettings()
                 1 -> showVideoGenerationDialog()
-                2 -> showVoicePicker()
-                3 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
+                2 -> showGifGenerationDialog()
+                3 -> showVoicePicker()
+                4 -> AlertDialog.Builder(this).setTitle("Цвет интерфейса")
                     .setSingleChoiceItems(themeNames, themeColors.indexOfFirst { it == accent }.coerceAtLeast(0)) { d, i ->
                         prefs.edit().putInt("ui_accent", themeColors[i]).apply()
                         d.dismiss()
                         recreate()
                     }.setNegativeButton("Отмена", null).show()
-                4 -> startActivity(Intent(this, PermissionCenterActivity::class.java))
-                5 -> {
+                5 -> startActivity(Intent(this, PermissionCenterActivity::class.java))
+                6 -> {
                     AlertDialog.Builder(this).setTitle("Удалить все чаты?")
                         .setMessage("Это удалит локальную историю диалогов.")
                         .setPositiveButton("Удалить") { _, _ ->
@@ -2731,11 +2850,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             respond("История чатов очищена.")
                         }.setNegativeButton("Отмена", null).show()
                 }
-                6 -> {
+                7 -> {
                     localMemory.clearUnpinned()
                     respond("Неприкреплённые записи памяти удалены.")
                 }
-                7 -> {
+                8 -> {
                     val msg = "Чатов: ${chats.list().size}\nСообщений: ${chats.messageCount()}\n" +
                         "Тем локальной базы: ${CurriculumKnowledge.topicCount()} + существующая школьная база\n" +
                         "Плавающее окно: ${if (OverlayService.isRunning) "включено" else "выключено"}\n" +

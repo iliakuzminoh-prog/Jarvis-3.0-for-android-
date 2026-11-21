@@ -194,13 +194,13 @@ class OverlayService : Service() {
             elevation = dp(10).toFloat()
         }
         val params = WindowManager.LayoutParams(
-            dp(50), dp(50), overlayType(),
+            dp(62), dp(62), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = dp(220)
+            x = (resources.displayMetrics.widthPixels - dp(78)).coerceAtLeast(0)
+            y = (resources.displayMetrics.heightPixels / 2 - dp(31)).coerceAtLeast(dp(72))
         }
         var downRawX = 0f
         var downRawY = 0f
@@ -230,13 +230,10 @@ class OverlayService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!moved) {
-                        val now = android.os.SystemClock.elapsedRealtime()
-                        if (lastTapAt > 0L && now > lastTapAt && now - lastTapAt <= 380L) {
-                            lastTapAt = 0L
-                            showPanel()
-                        } else {
-                            lastTapAt = now
-                        }
+                        // Один тап открывает панель. Раньше требовался двойной тап,
+                        // из-за чего overlay выглядел как неработающий.
+                        lastTapAt = 0L
+                        showPanel()
                     }
                     true
                 }
@@ -384,6 +381,10 @@ class OverlayService : Service() {
             windowManager.addView(card, params)
             panel = card
             request.requestFocus()
+            request.postDelayed({
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(request, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }, 120)
         } catch (_: Exception) {
             Toast.makeText(this, "Не удалось открыть окно JARVIS", Toast.LENGTH_SHORT).show()
         }

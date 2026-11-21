@@ -2895,12 +2895,25 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0) }
         fun field(value: String, hintText: String): EditText = EditText(this).apply { setText(value); hint = hintText; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
         val name = field(c.name, "Название провайдера"); val base = field(c.baseUrl, "Base URL"); val path = field(c.chatPath, "/chat/completions")
-        val model = field(c.model, "Модель"); val system = field(c.systemPrompt, "Системная инструкция").apply { minLines = 4; gravity = Gravity.TOP }
-        box.addView(name, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap()); box.addView(model, matchWrap()); box.addView(system, matchWrap())
-        box.addView(TextView(this).apply { text = if (secretStore.get(this@MainActivity, "ai_api_key").isNullOrBlank()) "API-ключ: не задан" else "API-ключ: сохранён в Android Keystore"; setTextColor(Color.LTGRAY); textSize = 11f }, matchWrap())
+        val model = field(c.model, "Основная модель (сложные задачи)")
+        val fastModel = field(c.fastModel, "Быстрая модель (простые вопросы)")
+        val system = field(c.systemPrompt, "Системная инструкция").apply { minLines = 4; gravity = Gravity.TOP }
+        box.addView(name, matchWrap()); box.addView(base, matchWrap()); box.addView(path, matchWrap())
+        box.addView(model, matchWrap()); box.addView(fastModel, matchWrap()); box.addView(system, matchWrap())
+        box.addView(TextView(this).apply {
+            text = "Быстрый режим включается локально для коротких простых запросов. Для кода, анализа и длинных задач используется основная модель."
+            setTextColor(Color.LTGRAY); textSize = 11f; setPadding(0, dp(6), 0, 0)
+        }, matchWrap())
+        box.addView(TextView(this).apply {
+            text = if (secretStore.get(this@MainActivity, "ai_api_key").isNullOrBlank()) "API-ключ: не задан" else "API-ключ: сохранён в Android Keystore"
+            setTextColor(Color.LTGRAY); textSize = 11f
+        }, matchWrap())
         AlertDialog.Builder(this).setTitle("AI CORE • провайдер и мозг").setView(box)
             .setPositiveButton("Сохранить") { _, _ ->
-                AiProviderStore.save(this, AiProviderConfig(name.text.toString(), base.text.toString(), path.text.toString(), model.text.toString(), system.text.toString()))
+                AiProviderStore.save(this, AiProviderConfig(
+                    name.text.toString(), base.text.toString(), path.text.toString(),
+                    model.text.toString(), system.text.toString(), fastModel.text.toString()
+                ))
                 respond("Настройки AI CORE сохранены.")
             }.setNeutralButton("API-ключ") { _, _ -> showAiKeyDialog() }.setNegativeButton("Закрыть", null).show()
     }

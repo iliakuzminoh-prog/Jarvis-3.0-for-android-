@@ -38,3 +38,6 @@ An original native Kotlin Android assistant prototype. Its command handling and 
 ## Build
 
 A GitHub Actions workflow is configured to build a debug APK on pushes to the main branch and upload it as an artifact named `JARVIS-debug-apk-and-build-log`. The latest debug APK build completed successfully on 2026-11-15. The APK is checked for signature validity and accompanied by a SHA-256 checksum. Physical-device behavior still requires testing on the target phone; a debug APK is not a Play Store release.
+
+
+<!-- CI verification marker: 2026-11-21 -->

@@ -2692,7 +2692,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         fun stop() {
             running = false
-            removeCallbacks(null)
+            invalidate()
         }
     }
 

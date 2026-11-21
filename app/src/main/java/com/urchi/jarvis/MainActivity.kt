@@ -820,6 +820,47 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // Инженерный режим кода: отдельный pipeline генерации -> adversarial review -> repair.
+        if (isCodeEngineeringRequest(cmd)) {
+            lastTopic = original
+            lastIntent = "code_engineering"
+            output.text = "CODE ENGINEERING\nАнализирую задачу и готовлю реализацию..."
+            val language = detectCodeLanguage(cmd)
+            CodeEngineeringEngine.generate(
+                this,
+                CodeEngineeringEngine.Request(
+                    task = original,
+                    language = language,
+                    framework = if (cmd.contains("android") || cmd.contains("андроид")) "Android" else "",
+                    target = if (cmd.contains("android") || cmd.contains("андроид")) "Android" else "",
+                    requireTests = true,
+                    auditAndRepair = true
+                )
+            ) { result ->
+                runOnUiThread {
+                    result.onSuccess { generated ->
+                        val finalCode = generated.repairedImplementation.ifBlank { generated.implementation }
+                        val review = generated.review.takeIf { it.isNotBlank() }
+                        val answer = buildString {
+                            append("CODE ENGINEERING\n")
+                            append(finalCode)
+                            if (review != null) {
+                                append("\n\n--- ADVERSARIAL REVIEW ---\n")
+                                append(review)
+                            }
+                        }
+                        output.text = answer
+                        chats.add(activeChatId, "assistant", answer.take(30000))
+                        say("Код подготовлен. Я также выполнил отдельную проверку модели на дефекты.")
+                    }.onFailure { error ->
+                        output.text = "CODE ENGINEERING\nНе удалось получить результат: " + (error.message ?: "неизвестная ошибка")
+                        say("Не удалось получить результат кодового режима.")
+                    }
+                }
+            }
+            return
+        }
+
         // AI CORE не должен перехватывать явные действия устройства. Если пользователь
         // просит открыть/запустить/включить/выключить функцию, сначала должен сработать
         // реальный Android-исполнитель ниже. Иначе модель могла бы ответить текстом вместо действия.
@@ -1503,6 +1544,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 respond("Понял, попробую иначе. Скажи, что именно нужно сделать или объяснить."); true
             }
             else -> false
+        }
+    }
+
+    private fun isCodeEngineeringRequest(cmd: String): Boolean {
+        val direct = listOf(
+            "напиши код", "создай код", "сгенерируй код", "исправь код",
+            "напиши программу", "создай программу", "сделай программу",
+            "write code", "generate code", "create code", "fix the code",
+            "write a program", "create a program", "programming task"
+        )
+        return direct.any { cmd.contains(it) }
+    }
+
+    private fun detectCodeLanguage(cmd: String): String {
+        return when {
+            cmd.contains("python") || cmd.contains("питон") -> "Python"
+            cmd.contains("javascript") || cmd.contains("js") -> "JavaScript"
+            cmd.contains("typescript") || cmd.contains("ts") -> "TypeScript"
+            cmd.contains("java") -> "Java"
+            cmd.contains("c++") -> "C++"
+            cmd.contains("c#") -> "C#"
+            cmd.contains("rust") -> "Rust"
+            cmd.contains("go ", ignoreCase = true) || cmd == "go" -> "Go"
+            cmd.contains("kotlin") || cmd.contains("котлин") || cmd.contains("android") || cmd.contains("андроид") -> "Kotlin"
+            else -> "Kotlin"
         }
     }
 

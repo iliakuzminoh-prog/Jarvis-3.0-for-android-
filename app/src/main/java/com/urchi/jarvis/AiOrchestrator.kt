@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 
 object AiOrchestrator {
     private const val MAX_ATTEMPTS = 2
-    private const val DEFAULT_SYSTEM_PROMPT = """
+    private val DEFAULT_SYSTEM_PROMPT = """
 You are JARVIS, a capable general-purpose personal AI assistant.
 Answer the user's actual question instead of treating ordinary questions as commands.
 Support Russian and English naturally; detect the user's language and answer in that language unless asked otherwise.
